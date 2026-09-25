@@ -67,7 +67,7 @@ jobs:
           dotnet test --project tests/ForgeDesk.Presentation.Tests -c Release --no-build
       - name: Package
         shell: pwsh
-        run: ./build/package.ps1 -Version 0.0.0-ci.${{ github.run_number }} -SkipTests
+        run: ./build/package.ps1 -Version 0.1.0-ci.${{ github.run_number }} -SkipTests
       - name: UI smoke tests
         if: hashFiles('tests/ForgeDesk.UITests/ForgeDesk.UITests.csproj') != ''
         shell: pwsh

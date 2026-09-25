@@ -37,7 +37,7 @@ dotnet test --project tests/ForgeDesk.Presentation.Tests  # view models
 End-to-end UI smoke tests drive the published app with FlaUI (Windows only):
 
 ```powershell
-./build/package.ps1 -Version 0.0.0-dev -SkipTests
+./build/package.ps1 -Version 0.1.0-dev -SkipTests
 $env:FORGEDESK_APP_PATH = "$PWD\artifacts\publish\win-x64\ForgeDesk.exe"
 dotnet test --project tests/ForgeDesk.UITests
 ```
