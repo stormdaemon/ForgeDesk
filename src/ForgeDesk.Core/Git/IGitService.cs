@@ -68,6 +68,9 @@ public interface IGitService
 
     Task RenameBranchAsync(string repoPath, string oldName, string newName, CancellationToken cancellationToken = default);
 
+    /// <summary>Local branches fully merged into <paramref name="target"/> (default: the default branch), excluding the target itself.</summary>
+    Task<IReadOnlyList<string>> GetMergedBranchesAsync(string repoPath, string? target = null, CancellationToken cancellationToken = default);
+
     Task MergeAsync(string repoPath, string branch, CancellationToken cancellationToken = default);
 
     Task AbortMergeAsync(string repoPath, CancellationToken cancellationToken = default);
