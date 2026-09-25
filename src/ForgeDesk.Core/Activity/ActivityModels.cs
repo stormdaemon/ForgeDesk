@@ -67,6 +67,15 @@ public sealed record ActivityQuery
     public IReadOnlyList<ActivityKind>? Kinds { get; init; }
     public ActivityOutcome? Outcome { get; init; }
     public string? Search { get; init; }
+
+    /// <summary>Only entries older than this instant (keyset pagination: pass the last entry's <see cref="ActivityEntry.At"/>).</summary>
     public DateTimeOffset? Before { get; init; }
+
+    /// <summary>
+    /// Id of the last entry of the previous page, used with <see cref="Before"/> so that entries
+    /// sharing the same timestamp are neither repeated nor skipped across pages.
+    /// </summary>
+    public long? BeforeId { get; init; }
+
     public int Limit { get; init; } = 200;
 }

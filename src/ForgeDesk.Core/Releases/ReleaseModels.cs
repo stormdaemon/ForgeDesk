@@ -9,6 +9,11 @@ public sealed record ReleaseContext
 {
     public string? LatestTag { get; init; }
     public string? LatestVersion { get; init; }
+
+    /// <summary>Prefix the project's tags use ("v" in v1.2.0, "" in 1.2.0): tag name = prefix + version.</summary>
+    public string TagPrefix { get; init; } = "v";
+
+    /// <summary>Candidate versions, the recommended one first.</summary>
     public IReadOnlyList<VersionSuggestion> Suggestions { get; init; } = [];
     public IReadOnlyList<GitCommit> CommitsSinceLatest { get; init; } = [];
     public string DraftNotes { get; init; } = string.Empty;
