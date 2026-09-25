@@ -43,6 +43,15 @@ public interface IGitHubService
 {
     bool IsSignedIn { get; }
 
+    /// <summary>
+    /// Drops cached responses (list calls and CI summaries are cached for up to a minute to
+    /// protect the rate limit) for one repository, or everything when <paramref name="repo"/>
+    /// is null. Call it for an explicit user "Refresh".
+    /// </summary>
+    void InvalidateCache(GitHubRepoRef? repo = null)
+    {
+    }
+
     Task<RateLimitInfo?> GetRateLimitAsync(CancellationToken cancellationToken = default);
 
     Task<GitHubRepository> GetRepositoryAsync(GitHubRepoRef repo, CancellationToken cancellationToken = default);
