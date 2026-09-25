@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (semantic version without the "v", e.g. 1.0.0)'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  release:
+    name: Build and publish the Windows release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}'.TrimStart('v') }
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Invalid version '$version'" }
+          $props = Get-Content Directory.Build.props -Raw
+          if ($props -notmatch "<Version>$([regex]::Escape($version))</Version>" -and $version -notmatch '-') {
+            Write-Warning "Directory.Build.props does not declare version $version; the build uses -p:Version=$version."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.name "ForgeDesk CI"
+          git config --global user.email "ci@forgedesk.invalid"
+          git config --global init.defaultBranch main
+          git config --global core.autocrlf false
+
+      - name: Extract release notes
+        shell: pwsh
+        run: ./build/extract-release-notes.ps1 -Version ${{ steps.version.outputs.version }} -Output artifacts/release-notes.md
+
+      - name: Test and package
+        shell: pwsh
+        run: ./build/package.ps1 -Version ${{ steps.version.outputs.version }} -ReleaseNotes artifacts/release-notes.md
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Push-Location artifacts/Releases
+          Get-ChildItem -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          } | Set-Content -Encoding utf8 SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+          Pop-Location
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $flags = @()
+          if ('${{ inputs.prerelease }}' -eq 'true' -or '${{ steps.version.outputs.version }}' -match '-') { $flags += '--prerelease' }
+          $files = Get-ChildItem artifacts/Releases -File | ForEach-Object FullName
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag exists: uploading assets"
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --title "ForgeDesk ${{ steps.version.outputs.version }}" --notes-file artifacts/release-notes.md --target $env:GITHUB_SHA @flags
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

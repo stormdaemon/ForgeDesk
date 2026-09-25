@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in ForgeDesk doesn't work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a project…
+        2. Click…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ForgeDesk version
+      description: Settings → About.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+  - type: input
+    id: git
+    attributes:
+      label: Git version
+      placeholder: git version 2.47.0.windows.1
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Settings → About → Open logs folder. Remove anything private before pasting.
+      render: text

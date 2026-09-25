@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+jobs:
+  core-linux:
+    name: Core & presentation tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.name "ForgeDesk CI"
+          git config --global user.email "ci@forgedesk.invalid"
+          git config --global init.defaultBranch main
+      - name: Build
+        run: |
+          dotnet build tests/ForgeDesk.Core.Tests -c Release
+          dotnet build tests/ForgeDesk.Presentation.Tests -c Release
+      - name: Test
+        run: |
+          dotnet test --project tests/ForgeDesk.Core.Tests -c Release --no-build
+          dotnet test --project tests/ForgeDesk.Presentation.Tests -c Release --no-build
+
+  windows:
+    name: Build, test & package (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.name "ForgeDesk CI"
+          git config --global user.email "ci@forgedesk.invalid"
+          git config --global init.defaultBranch main
+          git config --global core.autocrlf false
+      - name: Build solution
+        run: dotnet build ForgeDesk.slnx -c Release
+      - name: Unit tests
+        run: |
+          dotnet test --project tests/ForgeDesk.Core.Tests -c Release --no-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet test --project tests/ForgeDesk.Presentation.Tests -c Release --no-build
+      - name: Package
+        shell: pwsh
+        run: ./build/package.ps1 -Version 0.0.0-ci.${{ github.run_number }} -SkipTests
+      - name: UI smoke tests
+        if: hashFiles('tests/ForgeDesk.UITests/ForgeDesk.UITests.csproj') != ''
+        shell: pwsh
+        env:
+          FORGEDESK_APP_PATH: ${{ github.workspace }}\artifacts\publish\win-x64\ForgeDesk.exe
+          FORGEDESK_SCREENSHOTS: ${{ github.workspace }}\artifacts\screenshots
+        run: dotnet test --project tests/ForgeDesk.UITests -c Release
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: artifacts/screenshots
+          if-no-files-found: ignore
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForgeDesk-ci-installer
+          path: |
+            artifacts/Releases/*Setup.exe
+            artifacts/Releases/*Portable.zip
+          if-no-files-found: error
+          retention-days: 7
