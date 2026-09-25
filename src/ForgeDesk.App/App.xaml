@@ -1,12 +1,39 @@
 <Application x:Class="ForgeDesk.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
+        <!-- WPF-UI (ThemeService switches the theme dictionary at startup). -->
         <ui:ThemesDictionary Theme="Dark" />
         <ui:ControlsDictionary />
+
+        <!-- Forge design system (docs/DESIGN.md). -->
+        <ResourceDictionary Source="Themes/Brand.xaml" />
+        <ResourceDictionary Source="Themes/Typography.xaml" />
+        <ResourceDictionary Source="Themes/Converters.xaml" />
+        <ResourceDictionary Source="Themes/Controls.xaml" />
+
+        <!-- One dictionary of implicit DataTemplates (view model → view) per feature. -->
+        <ResourceDictionary Source="Features/Shell/ShellTemplates.xaml" />
+        <ResourceDictionary Source="Features/Dashboard/DashboardTemplates.xaml" />
+        <ResourceDictionary Source="Features/Onboarding/OnboardingTemplates.xaml" />
+        <ResourceDictionary Source="Features/Settings/SettingsTemplates.xaml" />
+        <ResourceDictionary Source="Features/Palette/PaletteTemplates.xaml" />
+        <ResourceDictionary Source="Features/Workspace/WorkspaceTemplates.xaml" />
+        <ResourceDictionary Source="Features/Overview/OverviewTemplates.xaml" />
+        <ResourceDictionary Source="Features/Git/GitTemplates.xaml" />
+        <ResourceDictionary Source="Features/GitHub/GitHubTemplates.xaml" />
+        <ResourceDictionary Source="Features/Files/FilesTemplates.xaml" />
+        <ResourceDictionary Source="Features/Terminal/TerminalTemplates.xaml" />
+        <ResourceDictionary Source="Features/Commands/CommandsTemplates.xaml" />
+        <ResourceDictionary Source="Features/Tasks/TasksTemplates.xaml" />
+        <ResourceDictionary Source="Features/Releases/ReleasesTemplates.xaml" />
+        <ResourceDictionary Source="Features/Insights/InsightsTemplates.xaml" />
+        <ResourceDictionary Source="Features/Activity/ActivityTemplates.xaml" />
+        <ResourceDictionary Source="Features/Dialogs/DialogsTemplates.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

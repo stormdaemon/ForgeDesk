@@ -1,0 +1,31 @@
+<Window x:Class="ForgeDesk.App.Startup.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="ForgeDesk"
+        Width="320"
+        Height="200"
+        AllowsTransparency="True"
+        Background="Transparent"
+        FontFamily="{DynamicResource ForgeUIFont}"
+        Icon="pack://application:,,,/Assets/ForgeDesk.ico"
+        ResizeMode="NoResize"
+        ShowActivated="False"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None">
+  <Border Margin="12" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+          BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+    <Border.Effect>
+      <DropShadowEffect BlurRadius="16" Opacity="0.3" ShadowDepth="2" />
+    </Border.Effect>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Image Width="56" Height="56" Source="{StaticResource ForgeLogoMark}" />
+      <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeSubtitle}" Text="ForgeDesk" />
+      <StackPanel Margin="0,10,0,0" HorizontalAlignment="Center" Orientation="Horizontal">
+        <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True" />
+        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Starting…" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

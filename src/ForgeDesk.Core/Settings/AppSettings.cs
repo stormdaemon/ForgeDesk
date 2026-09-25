@@ -66,4 +66,14 @@ public sealed record AppSettings
     // Dashboard
     public string DashboardSort { get; init; } = "attention";
     public string DashboardLayout { get; init; } = "grid";
+
+    // Window
+    /// <summary>Last size and position of the main window; null until it has been closed once.</summary>
+    public WindowPlacement? MainWindowPlacement { get; init; }
 }
+
+/// <summary>
+/// Normal (restored) bounds of a window in device-independent pixels, plus whether it was
+/// maximized. The app validates it against the current monitors before applying it.
+/// </summary>
+public sealed record WindowPlacement(double Left, double Top, double Width, double Height, bool Maximized);
