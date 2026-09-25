@@ -1,0 +1,49 @@
+<UserControl x:Class="ForgeDesk.App.Controls.ErrorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="Root"
+             Focusable="False">
+  <Border x:Name="Panel" MaxWidth="720" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+          Style="{StaticResource ForgeSectionCardStyle}" Visibility="Collapsed">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <ui:SymbolIcon x:Name="KindIcon" Margin="0,2,12,0" VerticalAlignment="Top" FontSize="24"
+                     Foreground="{DynamicResource ForgeDangerBrush}" Symbol="ErrorCircle24" />
+
+      <StackPanel Grid.Column="1">
+        <TextBlock x:Name="TitleText" Style="{StaticResource ForgeSubtitle}" TextWrapping="Wrap" />
+        <TextBlock x:Name="MessageText" Margin="0,4,0,0" Style="{StaticResource ForgeBody}" TextWrapping="Wrap" />
+
+        <Grid x:Name="HintRow" Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ui:SymbolIcon Margin="0,1,6,0" VerticalAlignment="Top" FontSize="16"
+                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Lightbulb16" />
+          <TextBlock x:Name="HintText" Grid.Column="1" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap" />
+        </Grid>
+
+        <Expander x:Name="DetailsExpander" Margin="0,12,0,0" Header="Technical details" IsExpanded="False">
+          <TextBox x:Name="DetailText" MaxHeight="220" Margin="0,8,0,0"
+                   Style="{StaticResource ForgeReadOnlyMonoTextBoxStyle}" />
+        </Expander>
+
+        <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
+          <ui:Button Margin="0,0,8,0" Appearance="Primary"
+                     Command="{Binding RetryCommand, ElementName=Root}"
+                     Content="{Binding RetryText, ElementName=Root}"
+                     Icon="{ui:SymbolIcon ArrowClockwise16}"
+                     Visibility="{Binding RetryCommand, ElementName=Root, Converter={StaticResource NullToCollapsed}}" />
+          <ui:Button x:Name="CopyButton" Appearance="Secondary" Click="OnCopyClick" Content="Copy details"
+                     Icon="{ui:SymbolIcon Copy16}" ToolTip="Copy the error and its technical details" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

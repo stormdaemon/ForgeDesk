@@ -1,0 +1,133 @@
+<UserControl x:Class="ForgeDesk.App.Controls.DiffView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:local="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:diff="clr-namespace:ForgeDesk.App.Controls.Diff"
+             x:Name="Root">
+  <UserControl.Resources>
+    <Style x:Key="DiffNumberStyle" TargetType="TextBlock">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="FontFamily" Value="{DynamicResource ForgeCodeFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource ForgeCodeFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+    </Style>
+
+    <Style x:Key="DiffCodeStyle" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontFamily" Value="{DynamicResource ForgeCodeFont}" />
+      <Setter Property="FontSize" Value="{DynamicResource ForgeCodeFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+
+    <DataTemplate x:Key="DiffLineTemplate" DataType="{x:Type diff:DiffRow}">
+      <Grid x:Name="Line" Background="Transparent">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="{Binding GutterWidth, RelativeSource={RelativeSource AncestorType=local:DiffView}}" />
+          <ColumnDefinition Width="{Binding GutterWidth, RelativeSource={RelativeSource AncestorType=local:DiffView}}" />
+          <ColumnDefinition Width="20" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Rectangle x:Name="Gutter" Grid.Column="2" Width="3" HorizontalAlignment="Left" Fill="Transparent" />
+        <TextBlock Grid.Column="0" Style="{StaticResource DiffNumberStyle}" Text="{Binding OldNumber, Mode=OneTime}" />
+        <TextBlock Grid.Column="1" Style="{StaticResource DiffNumberStyle}" Text="{Binding NewNumber, Mode=OneTime}" />
+        <TextBlock x:Name="Marker" Grid.Column="2" HorizontalAlignment="Center" Style="{StaticResource DiffCodeStyle}"
+                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding Marker, Mode=OneTime}" />
+        <TextBlock x:Name="Code" Grid.Column="3" Margin="0,0,24,0" Style="{StaticResource DiffCodeStyle}" Text="{Binding Text, Mode=OneTime}" />
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneTime}" Value="{x:Static diff:DiffRowKind.Added}">
+          <Setter TargetName="Line" Property="Background" Value="{DynamicResource ForgeDiffAddedBackgroundBrush}" />
+          <Setter TargetName="Gutter" Property="Fill" Value="{DynamicResource ForgeDiffAddedGutterBrush}" />
+          <Setter TargetName="Marker" Property="Foreground" Value="{DynamicResource ForgeDiffAddedGutterBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneTime}" Value="{x:Static diff:DiffRowKind.Removed}">
+          <Setter TargetName="Line" Property="Background" Value="{DynamicResource ForgeDiffRemovedBackgroundBrush}" />
+          <Setter TargetName="Gutter" Property="Fill" Value="{DynamicResource ForgeDiffRemovedGutterBrush}" />
+          <Setter TargetName="Marker" Property="Foreground" Value="{DynamicResource ForgeDiffRemovedGutterBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneTime}" Value="{x:Static diff:DiffRowKind.NoNewline}">
+          <Setter TargetName="Code" Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+          <Setter TargetName="Code" Property="FontStyle" Value="Italic" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <DataTemplate x:Key="DiffHunkHeaderTemplate" DataType="{x:Type diff:DiffRow}">
+      <Grid Background="{DynamicResource ForgeDiffHunkBackgroundBrush}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Margin="12,0,12,0" Style="{StaticResource DiffCodeStyle}"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Text, Mode=OneTime}" />
+        <ui:Button Grid.Column="1" Padding="8,0" VerticalAlignment="Center" Appearance="Secondary"
+                   Height="{Binding ActionButtonHeight, RelativeSource={RelativeSource AncestorType=local:DiffView}}"
+                   Command="{Binding HunkActionCommand, RelativeSource={RelativeSource AncestorType=local:DiffView}}"
+                   CommandParameter="{Binding Hunk, Mode=OneTime}"
+                   Content="{Binding HunkActionText, RelativeSource={RelativeSource AncestorType=local:DiffView}}"
+                   FontSize="12"
+                   Visibility="{Binding HunkActionText, RelativeSource={RelativeSource AncestorType=local:DiffView}, Converter={StaticResource NullToCollapsed}}" />
+      </Grid>
+    </DataTemplate>
+
+    <local:DiffRowTemplateSelector x:Key="DiffRowTemplateSelector"
+                                   HunkHeaderTemplate="{StaticResource DiffHunkHeaderTemplate}"
+                                   LineTemplate="{StaticResource DiffLineTemplate}" />
+
+    <Style x:Key="DiffRowContainerStyle" TargetType="ListBoxItem">
+      <Setter Property="OverridesDefaultStyle" Value="True" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Height" Value="{Binding RowHeight, RelativeSource={RelativeSource AncestorType=local:DiffView}}" />
+      <Setter Property="MinWidth" Value="{Binding ContentWidth, RelativeSource={RelativeSource AncestorType=local:DiffView}}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <Grid>
+              <ContentPresenter />
+              <Rectangle x:Name="Selection" Fill="{DynamicResource ForgeAccentSubtleBrush}" IsHitTestVisible="False" Visibility="Collapsed" />
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Selection" Property="Visibility" Value="Visible" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <ListBox x:Name="Lines"
+             Background="Transparent"
+             BorderThickness="0"
+             Padding="0"
+             IsTextSearchEnabled="False"
+             ItemContainerStyle="{StaticResource DiffRowContainerStyle}"
+             ItemTemplateSelector="{StaticResource DiffRowTemplateSelector}"
+             ScrollViewer.CanContentScroll="True"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             SelectionMode="Extended"
+             VirtualizingPanel.CacheLength="1,1"
+             VirtualizingPanel.CacheLengthUnit="Page"
+             VirtualizingPanel.IsVirtualizing="True"
+             VirtualizingPanel.ScrollUnit="Pixel"
+             VirtualizingPanel.VirtualizationMode="Recycling"
+             Visibility="Collapsed">
+      <ListBox.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Copy" CanExecute="OnCanCopy" Executed="OnCopy" />
+      </ListBox.CommandBindings>
+    </ListBox>
+
+    <local:EmptyState x:Name="StateMessage" Icon="DocumentText24" />
+  </Grid>
+</UserControl>

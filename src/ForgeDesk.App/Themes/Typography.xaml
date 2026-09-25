@@ -1,0 +1,61 @@
+<!--
+  Forge type ramp (DESIGN.md): Caption 12 · Body 13 · Body Strong 13 semibold · Subtitle 15
+  semibold · Title 20 semibold · Display 28 semibold · Mono. UI text uses the system font
+  (Segoe UI Variable); secondary information uses the *Secondary variants, never a smaller size.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style x:Key="ForgeTextBase" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+  </Style>
+
+  <Style x:Key="ForgeCaption" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style x:Key="ForgeCaptionSecondary" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaption}">
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <Style x:Key="ForgeBody" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}" />
+
+  <Style x:Key="ForgeBodySecondary" TargetType="TextBlock" BasedOn="{StaticResource ForgeBody}">
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <Style x:Key="ForgeBodyStrong" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style x:Key="ForgeSubtitle" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style x:Key="ForgeTitle" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontFamily" Value="{DynamicResource ForgeDisplayFont}" />
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style x:Key="ForgeDisplay" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontFamily" Value="{DynamicResource ForgeDisplayFont}" />
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Paths, hashes, branch names, log excerpts -->
+  <Style x:Key="ForgeMono" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontFamily" Value="{DynamicResource ForgeMonoFont}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style x:Key="ForgeMonoSecondary" TargetType="TextBlock" BasedOn="{StaticResource ForgeMono}">
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+</ResourceDictionary>

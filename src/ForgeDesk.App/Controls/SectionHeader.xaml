@@ -1,0 +1,22 @@
+<UserControl x:Class="ForgeDesk.App.Controls.SectionHeader"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Focusable="False">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+
+    <StackPanel VerticalAlignment="Center">
+      <TextBlock Style="{StaticResource ForgeSubtitle}" Text="{Binding Title, ElementName=Root}" />
+      <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeBodySecondary}" Text="{Binding Subtitle, ElementName=Root}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding Subtitle, ElementName=Root, Converter={StaticResource NullToCollapsed}}" />
+    </StackPanel>
+
+    <ContentPresenter Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                      Content="{Binding Actions, ElementName=Root}" />
+  </Grid>
+</UserControl>
