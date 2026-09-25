@@ -1,10 +1,10 @@
 # Build output
 bin/
 obj/
-out/
-publish/
-artifacts/
-Releases/
+/out/
+/publish/
+/artifacts/
+/Releases/
 TestResults/
 *.binlog
 
