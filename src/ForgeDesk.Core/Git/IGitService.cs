@@ -40,7 +40,10 @@ public interface IGitService
     /// <summary>Stages (or unstages when <paramref name="reverse"/>) a single hunk of a file diff.</summary>
     Task ApplyHunkAsync(string repoPath, FileDiff diff, DiffHunk hunk, bool reverse, CancellationToken cancellationToken = default);
 
-    /// <summary>Discards working-tree changes (restores tracked files, deletes untracked ones).</summary>
+    /// <summary>
+    /// Discards all local changes of the paths, staged and unstaged: tracked files are restored to
+    /// their HEAD version, untracked and newly added files are removed from the index and deleted.
+    /// </summary>
     Task DiscardAsync(string repoPath, IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
     Task<GitCommit> CommitAsync(string repoPath, GitCommitOptions options, CancellationToken cancellationToken = default);
