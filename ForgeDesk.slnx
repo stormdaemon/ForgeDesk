@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ForgeDesk.App/ForgeDesk.App.csproj" />
+    <Project Path="src/ForgeDesk.Core/ForgeDesk.Core.csproj" />
+    <Project Path="src/ForgeDesk.Presentation/ForgeDesk.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ForgeDesk.Core.Tests/ForgeDesk.Core.Tests.csproj" />
+    <Project Path="tests/ForgeDesk.Presentation.Tests/ForgeDesk.Presentation.Tests.csproj" />
+  </Folder>
+</Solution>
