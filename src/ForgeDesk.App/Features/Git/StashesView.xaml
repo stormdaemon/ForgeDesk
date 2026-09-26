@@ -1,0 +1,142 @@
+<UserControl x:Class="ForgeDesk.App.Features.Git.StashesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Git;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:StashesViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1100"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Git.StashesView"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- A stash: message, branch and age; restore and drop on hover. -->
+    <DataTemplate x:Key="StashRowTemplate" DataType="{x:Type vm:StashRowViewModel}">
+      <Grid Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding PopCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Restore (apply and remove)" InputGestureText="Enter">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowUndo16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding DropCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Drop…" InputGestureText="Del">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Delete16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <ui:SymbolIcon VerticalAlignment="Center" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Archive16" />
+        <StackPanel Grid.Column="1" Margin="10,4,8,4" VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Message}" />
+          <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+            <TextBlock Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Branch}" Visibility="{Binding Branch, Converter={StaticResource NullToCollapsed}}" />
+            <TextBlock Margin="8,0,0,0" Style="{StaticResource ForgeCaptionSecondary}" Visibility="{Binding Date, Converter={StaticResource NullToCollapsed}}">
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource RelativeTime}">
+                  <Binding Path="Date" />
+                  <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Style="{StaticResource GitRowActionsStyle}">
+          <ui:Button AutomationProperties.Name="Restore stash" Command="{Binding DataContext.PopCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon ArrowUndo16}" Style="{StaticResource GitRowButtonStyle}"
+                     ToolTip="Restore: apply to the working tree and remove the stash (Enter)" />
+          <ui:Button AutomationProperties.Name="Drop stash" Command="{Binding DataContext.DropCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon Delete16}" Style="{StaticResource GitRowButtonStyle}" ToolTip="Drop… (Del)" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="380" MinWidth="280" MaxWidth="640" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" MinWidth="320" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ===== Stash list ===== -->
+    <Grid Grid.Column="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Margin="24,12,12,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Style="{StaticResource GitPaneTitleStyle}" Text="Stashes" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <ui:ProgressRing Width="16" Height="16" Margin="0,0,12,0" IsIndeterminate="True"
+                           Visibility="{Binding IsWorking, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.AutomationId="Git.StashButton" Command="{Binding StashChangesCommand}" Content="Stash changes…"
+                     Icon="{ui:SymbolIcon Archive16}" ToolTip="Set your uncommitted changes aside" ToolTipService.ShowOnDisabled="True" />
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <ListBox x:Name="StashList" Margin="8,0,0,4" AutomationProperties.AutomationId="Git.StashList" AutomationProperties.Name="Stashes"
+                 ItemContainerStyle="{StaticResource GitTallRowStyle}" ItemTemplate="{StaticResource StashRowTemplate}" ItemsSource="{Binding Stashes}"
+                 PreviewKeyDown="OnStashListKeyDown" SelectedItem="{Binding SelectedStash, Mode=TwoWay}" SelectionMode="Single"
+                 Style="{StaticResource ForgeDenseListBoxStyle}" />
+        <controls:SkeletonList IsActive="{Binding IsLoading}" RowCount="4" RowHeight="44" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+        <controls:ErrorPanel Margin="24" Error="{Binding Error}" RetryCommand="{Binding ReloadCommand}" />
+      </Grid>
+    </Grid>
+
+    <GridSplitter Grid.Column="1" Style="{StaticResource ForgeGridSplitterStyle}"
+                  Visibility="{Binding HasStashes, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== Selected stash: actions and content ===== -->
+    <Grid Grid.Column="2" Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <Border Padding="16,10,16,10" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding SelectedStash.Message}" />
+            <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding SelectedStash.Name}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+            <ui:Button Appearance="Primary" AutomationProperties.AutomationId="Git.PopStashButton" Command="{Binding PopCommand}" Content="Restore"
+                       Icon="{ui:SymbolIcon ArrowUndo16}" ToolTip="Apply the changes to the working tree and remove the stash" />
+            <ui:Button Margin="8,0,0,0" Appearance="Danger" AutomationProperties.AutomationId="Git.DropStashButton" Command="{Binding DropCommand}"
+                       Content="Drop…" Icon="{ui:SymbolIcon Delete16}" ToolTip="Delete the stash and its changes" />
+          </StackPanel>
+        </Grid>
+      </Border>
+      <ContentControl Grid.Row="1" Content="{Binding Details}" Focusable="False" IsTabStop="False" />
+    </Grid>
+
+    <!-- ===== No stashes ===== -->
+    <controls:EmptyState Grid.Column="0" Grid.ColumnSpan="3" AutomationProperties.AutomationId="Git.NoStashesState" Icon="Archive24" Title="No stashes"
+                         Description="{Binding EmptyDescription}" ActionText="{Binding StashActionText}" ActionCommand="{Binding StashChangesCommand}"
+                         Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+  </Grid>
+</UserControl>

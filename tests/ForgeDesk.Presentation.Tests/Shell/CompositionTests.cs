@@ -32,7 +32,9 @@ public sealed class CompositionTests : IDisposable
 
         provider.GetRequiredService<ShellViewModel>().Should().NotBeNull();
         provider.GetRequiredService<INavigationService>().Should().BeSameAs(provider.GetRequiredService<NavigationService>());
-        provider.GetServices<IPaletteSource>().Should().HaveCount(3);
+        // Features add their own sources; the shell always brings these three.
+        provider.GetServices<IPaletteSource>().Select(s => s.GetType()).Should()
+            .Contain([typeof(ProjectsPaletteSource), typeof(NavigationPaletteSource), typeof(ShellActionsPaletteSource)]);
         provider.GetRequiredService<IProjectActions>().CanClone.Should().BeFalse();
     }
 
@@ -73,7 +75,8 @@ public sealed class CompositionTests : IDisposable
         using var workspace = provider.GetRequiredService<IProjectWorkspaceFactory>().Create(project);
 
         workspace.ProjectId.Should().Be(project.Id);
-        workspace.AvailableTabs.Select(t => t.Section).Should().Equal(WorkspaceSection.Files);
+        // Feature registrations (AddForgeDeskPresentation) add their own sections next to this one.
+        workspace.AvailableTabs.Select(t => t.Section).Should().Contain(WorkspaceSection.Files);
     }
 
     private static ServiceProvider Build(Action<IServiceCollection> configure)

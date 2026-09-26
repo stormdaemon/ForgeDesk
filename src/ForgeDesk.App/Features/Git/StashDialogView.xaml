@@ -1,0 +1,40 @@
+<UserControl x:Class="ForgeDesk.App.Features.Git.StashDialogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Git;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:StashDialogViewModel}"
+             d:DesignWidth="480"
+             AutomationProperties.AutomationId="Git.StashDialog">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border Background="{DynamicResource ContentDialogTopOverlay}">
+      <StackPanel Margin="24,8,24,24">
+        <TextBlock Style="{StaticResource ForgeTitle}" Text="{Binding Title}" />
+        <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeBodySecondary}" Text="{Binding Explanation}" TextWrapping="Wrap" />
+
+        <TextBlock Margin="0,16,0,6" Style="{StaticResource ForgeCaption}" Text="Message" />
+        <ui:TextBox x:Name="MessageField" AutomationProperties.AutomationId="Git.StashMessage" AutomationProperties.Name="Stash message" ClearButtonEnabled="False"
+                    MaxLength="200" PlaceholderText="What were you working on? (optional)" Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" />
+
+        <CheckBox Margin="0,14,0,0" AutomationProperties.AutomationId="Git.StashIncludeUntracked" Content="{Binding IncludeUntrackedText}"
+                  IsChecked="{Binding IncludeUntracked}" Visibility="{Binding HasUntrackedFiles, Converter={StaticResource BoolToVisibility}}" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1" Padding="24,20" BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}" BorderThickness="0,1,0,0">
+      <UniformGrid Columns="2">
+        <ui:Button Margin="0,0,4,0" HorizontalAlignment="Stretch" Appearance="Primary" AutomationProperties.AutomationId="Git.StashConfirmButton"
+                   Command="{Binding ConfirmCommand}" Content="Stash changes" IsDefault="True" />
+        <ui:Button Margin="4,0,0,0" HorizontalAlignment="Stretch" Appearance="Secondary" Command="{Binding CancelCommand}" Content="Cancel" IsCancel="True" />
+      </UniformGrid>
+    </Border>
+  </Grid>
+</UserControl>

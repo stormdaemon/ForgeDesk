@@ -1,0 +1,400 @@
+<UserControl x:Class="ForgeDesk.App.Features.Git.ChangesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Git;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ChangesViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1100"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Git.ChangesView"
+             Focusable="False"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <UserControl.Resources>
+    <!-- Overflow menu of the list header, opened by the "More" button. -->
+    <ContextMenu x:Key="MoreMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+      <MenuItem AutomationProperties.AutomationId="Git.StashChangesMenuItem" Command="{Binding StashChangesCommand}" Header="Stash all changes…">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Archive16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator />
+      <MenuItem Command="{Binding OpenRepositoryFolderCommand}" Header="Open folder in File Explorer">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="FolderOpen16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding OpenTerminalCommand}" Header="Open in terminal">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="WindowConsole20" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </ContextMenu>
+
+    <!-- Group header: "STAGED CHANGES  3" -->
+    <DataTemplate DataType="{x:Type vm:ChangeGroupHeader}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Style="{StaticResource GitGroupTitleStyle}" Text="{Binding Title, Converter={StaticResource UpperCase}}" />
+        <TextBlock Margin="8,0,0,4" Style="{StaticResource GitGroupTitleStyle}" Text="{Binding Count}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- A changed file: state glyph, name and dimmed folder, hover actions, context menu. -->
+    <DataTemplate DataType="{x:Type vm:ChangeItemViewModel}">
+      <Grid Background="Transparent" ToolTip="{Binding ToolTip}" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding StageCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="{Binding PlacementTarget.DataContext.StageText, RelativeSource={RelativeSource AncestorType=ContextMenu}}" InputGestureText="Space"
+                      Visibility="{Binding PlacementTarget.DataContext.IsStaged, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource InverseBoolToVisibility}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Add16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding UnstageCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Unstage" InputGestureText="Space"
+                      Visibility="{Binding PlacementTarget.DataContext.IsStaged, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Subtract16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding DiscardCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Discard changes…" InputGestureText="Del">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowUndo16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding OpenFileCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Open file">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Code16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding RevealCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Reveal in File Explorer">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="FolderOpen16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding ShowInFilesCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Show in Files tab">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Folder16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding ViewFileHistoryCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="View history of file">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="History16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy path">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Copy16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CopyRelativePathCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy relative path" />
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <Border Style="{StaticResource GitStateBadgeStyle}" ToolTip="{Binding StateDescription}">
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StateLetter}" />
+        </Border>
+
+        <DockPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" LastChildFill="True">
+          <TextBlock DockPanel.Dock="Left" Style="{StaticResource ForgeBody}" Text="{Binding DisplayName}" />
+          <TextBlock Margin="8,0,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Directory}" />
+        </DockPanel>
+
+        <StackPanel Grid.Column="2" Style="{StaticResource GitRowActionsStyle}">
+          <ui:Button AutomationProperties.Name="Stage" Command="{Binding DataContext.StageCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon Add16}" Style="{StaticResource GitRowButtonStyle}" ToolTip="Stage (Space)"
+                     Visibility="{Binding CanStage, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.Name="Mark as resolved" Command="{Binding DataContext.StageCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon Checkmark16}" Style="{StaticResource GitRowButtonStyle}"
+                     ToolTip="Mark as resolved (stage the file)" Visibility="{Binding IsConflicted, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.Name="Unstage" Command="{Binding DataContext.UnstageCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon Subtract16}" Style="{StaticResource GitRowButtonStyle}" ToolTip="Unstage (Space)"
+                     Visibility="{Binding IsStaged, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.Name="Discard changes" Command="{Binding DataContext.DiscardCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                     CommandParameter="{Binding}" Icon="{ui:SymbolIcon ArrowUndo16}" Style="{StaticResource GitRowButtonStyle}" ToolTip="Discard changes… (Del)" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Banners: merge, other operations, detached HEAD ===== -->
+    <StackPanel Grid.Row="0">
+      <ui:InfoBar Margin="24,12,24,0" AutomationProperties.AutomationId="Git.MergeBanner" IsClosable="False" IsOpen="{Binding IsMerging, Mode=OneWay}"
+                  Message="{Binding OperationMessage}" Severity="Warning" Title="{Binding OperationTitle}"
+                  Visibility="{Binding IsMerging, Converter={StaticResource BoolToVisibility}}">
+        <ui:Button Margin="0,8,0,0" HorizontalAlignment="Left" AutomationProperties.AutomationId="Git.AbortMergeButton" Command="{Binding AbortMergeCommand}"
+                   Content="Abort merge…" Icon="{ui:SymbolIcon Dismiss16}" />
+      </ui:InfoBar>
+
+      <ui:InfoBar Margin="24,12,24,0" AutomationProperties.AutomationId="Git.OperationBanner" IsClosable="False" IsOpen="{Binding IsOtherOperationInProgress, Mode=OneWay}"
+                  Message="{Binding OperationMessage}" Severity="Informational" Title="{Binding OperationTitle}"
+                  Visibility="{Binding IsOtherOperationInProgress, Converter={StaticResource BoolToVisibility}}">
+        <ui:Button Margin="0,8,0,0" HorizontalAlignment="Left" Command="{Binding OpenTerminalCommand}" Content="Open terminal" Icon="{ui:SymbolIcon WindowConsole20}" />
+      </ui:InfoBar>
+
+      <ui:InfoBar Margin="24,12,24,0" AutomationProperties.AutomationId="Git.DetachedBanner" IsClosable="False" IsOpen="{Binding IsDetached, Mode=OneWay}"
+                  Message="{Binding DetachedMessage}" Severity="Warning" Title="You're not on a branch"
+                  Visibility="{Binding IsDetached, Converter={StaticResource BoolToVisibility}}">
+        <ui:Button Margin="0,8,0,0" HorizontalAlignment="Left" Appearance="Primary" AutomationProperties.AutomationId="Git.CreateBranchHereButton"
+                   Command="{Binding CreateBranchHereCommand}" Content="Create branch here…" Icon="{ui:SymbolIcon BranchFork16}" />
+      </ui:InfoBar>
+    </StackPanel>
+
+    <!-- ===== Files | diff ===== -->
+    <Grid Grid.Row="1" Visibility="{Binding ShowList, Converter={StaticResource BoolToVisibility}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="380" MinWidth="280" MaxWidth="720" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="320" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Left pane: header, files, commit box -->
+      <Grid Grid.Column="0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="24,12,12,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Style="{StaticResource GitPaneTitleStyle}" Text="Changes" />
+            <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ChangedFilesText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+            <ui:Button AutomationProperties.AutomationId="Git.StageAllButton" AutomationProperties.Name="Stage all" Command="{Binding StageAllCommand}"
+                       Icon="{ui:SymbolIcon Add16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Stage all changes" />
+            <ui:Button AutomationProperties.AutomationId="Git.UnstageAllButton" AutomationProperties.Name="Unstage all" Command="{Binding UnstageAllCommand}"
+                       Icon="{ui:SymbolIcon Subtract16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Unstage all changes" />
+            <ui:Button AutomationProperties.AutomationId="Git.DiscardAllButton" AutomationProperties.Name="Discard all changes" Command="{Binding DiscardAllCommand}"
+                       Icon="{ui:SymbolIcon ArrowUndo16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Discard all changes…" />
+            <ui:Button x:Name="MoreButton" AutomationProperties.AutomationId="Git.ChangesMoreButton" AutomationProperties.Name="More actions"
+                       Click="OnMoreClick" Icon="{ui:SymbolIcon MoreHorizontal16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="More actions" />
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+          <ListBox x:Name="FileList" Margin="8,0,0,4" AutomationProperties.AutomationId="Git.ChangesList" AutomationProperties.Name="Changed files"
+                   ItemContainerStyle="{StaticResource GitGroupedRowStyle}" ItemsSource="{Binding Rows}" PreviewKeyDown="OnFileListKeyDown"
+                   SelectionChanged="OnFileSelectionChanged" SelectionMode="Extended" Style="{StaticResource ForgeDenseListBoxStyle}" />
+          <ProgressBar Height="2" MinHeight="2" VerticalAlignment="Top" IsIndeterminate="True"
+                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToHidden}}" />
+        </Grid>
+
+        <!-- Commit box -->
+        <Border Grid.Row="2" Padding="24,12,12,16" Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+          <StackPanel>
+            <ui:TextBox x:Name="SummaryBox" AutomationProperties.AutomationId="Git.CommitSummary" AutomationProperties.Name="Commit summary"
+                        ClearButtonEnabled="False" MaxLength="500" PlaceholderText="Summary (required)"
+                        Text="{Binding Summary, UpdateSourceTrigger=PropertyChanged}" />
+
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <ToggleButton HorizontalAlignment="Left" AutomationProperties.AutomationId="Git.DescriptionToggle" Cursor="Hand"
+                            FocusVisualStyle="{StaticResource GitFocusVisualStyle}" IsChecked="{Binding IsDescriptionExpanded}"
+                            ToolTip="Show or hide the description">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <StackPanel Background="Transparent" Orientation="Horizontal">
+                      <ui:SymbolIcon x:Name="Chevron" Margin="0,0,4,0" VerticalAlignment="Center" FontSize="12"
+                                     Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="ChevronRight12" />
+                      <TextBlock x:Name="Label" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Description" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsChecked" Value="True">
+                        <Setter TargetName="Chevron" Property="Symbol" Value="ChevronDown12" />
+                      </Trigger>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding SummaryCounterText}"
+                         ToolTip="Summaries of 72 characters or less display in full everywhere"
+                         Visibility="{Binding HasSummary, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsSummaryTooLong}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource ForgeWarningBrush}" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </Grid>
+
+            <ui:TextBox x:Name="DescriptionBox" MinHeight="72" MaxHeight="180" Margin="0,6,0,0" VerticalContentAlignment="Top" AcceptsReturn="True"
+                        AutomationProperties.AutomationId="Git.CommitDescription" AutomationProperties.Name="Commit description" ClearButtonEnabled="False"
+                        PlaceholderText="Description" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap"
+                        VerticalScrollBarVisibility="Auto" Visibility="{Binding IsDescriptionExpanded, Converter={StaticResource BoolToVisibility}}" />
+
+            <CheckBox Margin="0,10,0,0" AutomationProperties.AutomationId="Git.AmendCheckBox" Content="Amend last commit" IsChecked="{Binding IsAmend}"
+                      IsEnabled="{Binding CanAmend}" ToolTip="Replace the last commit with the staged changes and this message" />
+
+            <Grid Margin="0,12,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <ui:Button HorizontalAlignment="Stretch" Appearance="Primary" AutomationProperties.AutomationId="Git.CommitButton" Command="{Binding CommitCommand}"
+                         ToolTip="{Binding CommitToolTip}" ToolTipService.ShowOnDisabled="True">
+                <Grid>
+                  <!-- Spinner while the commit itself runs (the push has its own on the other button). -->
+                  <Grid HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Grid.Style>
+                      <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                          <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                              <Condition Binding="{Binding IsCommitting}" Value="True" />
+                              <Condition Binding="{Binding IsPushingAfterCommit}" Value="False" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible" />
+                          </MultiDataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Grid.Style>
+                    <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True" />
+                  </Grid>
+                  <TextBlock Margin="22,0,22,0" HorizontalAlignment="Center" Text="{Binding CommitButtonText}" TextTrimming="CharacterEllipsis" />
+                </Grid>
+              </ui:Button>
+              <ui:Button Grid.Column="1" Margin="8,0,0,0" AutomationProperties.AutomationId="Git.CommitAndPushButton" Command="{Binding CommitAndPushCommand}"
+                         ToolTip="{Binding CommitAndPushToolTip}" ToolTipService.ShowOnDisabled="True">
+                <StackPanel Orientation="Horizontal">
+                  <Grid Width="16" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <ui:SymbolIcon FontSize="14" Symbol="ArrowUp16" Visibility="{Binding IsPushingAfterCommit, Converter={StaticResource InverseBoolToVisibility}}" />
+                    <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True"
+                                     Visibility="{Binding IsPushingAfterCommit, Converter={StaticResource BoolToVisibility}}" />
+                  </Grid>
+                  <TextBlock VerticalAlignment="Center" Text="{Binding CommitAndPushText}" />
+                </StackPanel>
+              </ui:Button>
+            </Grid>
+            <StackPanel Margin="0,8,0,0" HorizontalAlignment="Right" Orientation="Horizontal" ToolTip="Ctrl+Shift+Enter commits and pushes">
+              <controls:KeyHint Keys="Ctrl+Enter" />
+              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="to commit" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <GridSplitter Grid.Column="1" Style="{StaticResource ForgeGridSplitterStyle}" />
+
+      <!-- Right pane: diff of the selected file -->
+      <Grid Grid.Column="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Padding="16,10,16,10" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                Visibility="{Binding DiffItem, Converter={StaticResource NotNullToVisible}}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border DataContext="{Binding DiffItem}" Style="{StaticResource GitStateBadgeStyle}" ToolTip="{Binding StateDescription}">
+              <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StateLetter}" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="10,0,12,0" VerticalAlignment="Center">
+              <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding DiffItem.DisplayName}" ToolTip="{Binding DiffItem.ToolTip}" />
+              <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding DiffTargetText}" />
+                <TextBlock Margin="8,0,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding DiffItem.Directory}"
+                           Visibility="{Binding DiffItem.Directory, Converter={StaticResource NullToCollapsed}}" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,12,0" VerticalAlignment="Center" Orientation="Horizontal"
+                        Visibility="{Binding HasLineCounts, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Foreground="{DynamicResource ForgeSuccessBrush}" Style="{StaticResource ForgeMono}" Text="{Binding DiffAdditions, StringFormat=+{0}}" />
+              <TextBlock Margin="8,0,0,0" Foreground="{DynamicResource ForgeDangerBrush}" Style="{StaticResource ForgeMono}"
+                         Text="{Binding DiffDeletions, StringFormat=−{0}}" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" VerticalAlignment="Center" Orientation="Horizontal">
+              <ui:Button Appearance="Secondary" AutomationProperties.AutomationId="Git.DiffStageButton" Command="{Binding StageCommand}"
+                         CommandParameter="{Binding DiffItem}" Content="Stage file" Icon="{ui:SymbolIcon Add16}"
+                         Visibility="{Binding DiffItem.IsStaged, Converter={StaticResource InverseBoolToVisibility}}" />
+              <ui:Button Appearance="Secondary" AutomationProperties.AutomationId="Git.DiffUnstageButton" Command="{Binding UnstageCommand}"
+                         CommandParameter="{Binding DiffItem}" Content="Unstage file" Icon="{ui:SymbolIcon Subtract16}"
+                         Visibility="{Binding DiffItem.IsStaged, Converter={StaticResource BoolToVisibility}}" />
+              <ui:Button Margin="4,0,0,0" AutomationProperties.AutomationId="Git.OpenInEditorButton" AutomationProperties.Name="Open in editor"
+                         Command="{Binding OpenFileCommand}" CommandParameter="{Binding DiffItem}" Icon="{ui:SymbolIcon Code16}"
+                         Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Open in editor" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+          <controls:DiffView x:Name="DiffPane" AutomationProperties.AutomationId="Git.ChangesDiff" Diff="{Binding Diff}" Focusable="False"
+                             HunkActionCommand="{Binding ApplyHunkCommand}" HunkActionText="{Binding HunkActionText}"
+                             PlaceholderText="Select a file to see its changes."
+                             Visibility="{Binding ShowDiffView, Converter={StaticResource BoolToVisibility}}" />
+
+          <controls:LoadingState IsActive="{Binding IsDiffPending}" Message="Loading the diff…"
+                                 Visibility="{Binding IsDiffPending, Converter={StaticResource BoolToVisibility}}" />
+
+          <controls:ErrorPanel Margin="24" Error="{Binding DiffError}" RetryCommand="{Binding RetryDiffCommand}" />
+
+          <controls:EmptyState AutomationProperties.AutomationId="Git.ConflictPanel" Icon="Warning24" Title="This file has merge conflicts"
+                               Description="Open it in your editor, keep the lines you want and delete the conflict markers (&lt;&lt;&lt;&lt;&lt;&lt;&lt;, =======, &gt;&gt;&gt;&gt;&gt;&gt;&gt;). Then mark it as resolved."
+                               ActionText="Open in editor" ActionCommand="{Binding OpenFileCommand}" ActionCommandParameter="{Binding DiffItem}"
+                               SecondaryActionText="Mark as resolved" SecondaryActionCommand="{Binding StageCommand}"
+                               SecondaryActionCommandParameter="{Binding DiffItem}"
+                               Visibility="{Binding ShowConflictPanel, Converter={StaticResource BoolToVisibility}}" />
+
+          <controls:EmptyState AutomationProperties.AutomationId="Git.MultipleSelection" Icon="DocumentMultiple24" Title="{Binding SelectionTitle}"
+                               Description="{Binding SelectionDetail}"
+                               ActionText="{Binding SelectionStageText}" ActionCommand="{Binding StageCommand}"
+                               SecondaryActionText="{Binding SelectionUnstageText}" SecondaryActionCommand="{Binding UnstageCommand}"
+                               Visibility="{Binding HasMultipleSelection, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+      </Grid>
+    </Grid>
+
+    <!-- ===== Clean working tree ===== -->
+    <controls:EmptyState Grid.Row="1" AutomationProperties.AutomationId="Git.CleanState" Icon="CheckmarkCircle24" Title="{Binding CleanTitle}"
+                         Description="{Binding CleanDescription}" ActionText="{Binding CleanActionText}" ActionCommand="{Binding CleanActionCommand}"
+                         Visibility="{Binding IsClean, Converter={StaticResource BoolToVisibility}}" />
+  </Grid>
+</UserControl>
