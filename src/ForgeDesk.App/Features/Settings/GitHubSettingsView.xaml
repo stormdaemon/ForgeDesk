@@ -1,0 +1,66 @@
+<UserControl x:Class="ForgeDesk.App.Features.Settings.GitHubSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Settings;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:GitHubSettingsViewModel}"
+             d:DesignWidth="800"
+             Focusable="False">
+  <StackPanel>
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Account" />
+    <ContentControl Content="{Binding SignIn}" Focusable="False" IsTabStop="False" />
+
+    <ui:CardControl Icon="{ui:SymbolIcon SignOut24}" Style="{StaticResource SettingsCardStyle}"
+                    Visibility="{Binding SignIn.IsSignedIn, Converter={StaticResource BoolToVisibility}}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Sign out" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="ForgeDesk forgets its GitHub token. Local projects are not affected." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:Button AutomationProperties.AutomationId="Settings.GitHubSignOutButton" Command="{Binding SignOutCommand}">
+        <StackPanel Orientation="Horizontal">
+          <ui:ProgressRing Width="14" Height="14" Margin="0,0,8,0" IsIndeterminate="True"
+                           Visibility="{Binding IsSigningOut, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Foreground="{DynamicResource ForgeDangerBrush}" Text="Sign out…" />
+        </StackPanel>
+      </ui:Button>
+    </ui:CardControl>
+
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Features" />
+    <ui:CardControl Icon="{ui:SymbolIcon Globe24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Enable GitHub features" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}"
+                     Text="Issues, pull requests, Actions, CI status on the dashboard and releases. Turn off to work fully offline." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch AutomationProperties.AutomationId="Settings.GitHubEnabledToggle" AutomationProperties.Name="Enable GitHub features"
+                       IsChecked="{Binding GitHubEnabled, Mode=TwoWay}" OffContent="Off" OnContent="On" />
+    </ui:CardControl>
+
+    <ui:CardControl AutomationProperties.AutomationId="Settings.RateLimitCard" Icon="{ui:SymbolIcon DataUsage24}" Style="{StaticResource SettingsCardStyle}"
+                    Visibility="{Binding SignIn.IsSignedIn, Converter={StaticResource BoolToVisibility}}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="API rate limit" />
+          <TextBlock AutomationProperties.AutomationId="Settings.RateLimitText" Style="{StaticResource SettingsDescriptionStyle}" Text="{Binding RateLimitText}"
+                     Visibility="{Binding RateLimitText, Converter={StaticResource NullToCollapsed}}" />
+          <ProgressBar Width="240" Height="4" Margin="0,8,0,2" HorizontalAlignment="Left" Maximum="1" Minimum="0"
+                       Value="{Binding RateLimitRemainingFraction, Mode=OneWay}"
+                       Visibility="{Binding RateLimit, Converter={StaticResource NullToCollapsed}}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <Grid>
+        <ui:Button AutomationProperties.AutomationId="Settings.RefreshRateLimitButton" AutomationProperties.Name="Refresh the rate limit"
+                   Command="{Binding RefreshRateLimitCommand}" Icon="{ui:SymbolIcon ArrowClockwise16}" Style="{StaticResource ForgeIconButtonStyle}"
+                   ToolTip="Refresh (F5)" Visibility="{Binding IsLoadingRateLimit, Converter={StaticResource InverseBoolToVisibility}}" />
+        <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" Visibility="{Binding IsLoadingRateLimit, Converter={StaticResource BoolToVisibility}}" />
+      </Grid>
+    </ui:CardControl>
+  </StackPanel>
+</UserControl>

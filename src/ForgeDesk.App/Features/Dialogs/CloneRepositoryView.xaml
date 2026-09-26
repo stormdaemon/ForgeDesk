@@ -1,0 +1,305 @@
+<UserControl x:Class="ForgeDesk.App.Features.Dialogs.CloneRepositoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Dashboard;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CloneRepositoryDialogViewModel}"
+             d:DesignWidth="760" d:DesignHeight="660"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Clone.Dialog">
+  <UserControl.Resources>
+    <Style x:Key="CloneTabItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ForgeWorkspaceTabItemStyle}">
+      <Setter Property="AutomationProperties.AutomationId" Value="{Binding AutomationId}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+    </Style>
+
+    <Style x:Key="CloneFieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeBodyStrong}">
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+
+    <Style x:Key="CloneErrorTextStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaption}">
+      <Setter Property="Margin" Value="0,6,0,0" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Foreground" Value="{DynamicResource ForgeDangerBrush}" />
+    </Style>
+
+    <!-- A repository of the list. -->
+    <DataTemplate x:Key="RepositoryTemplate" DataType="{x:Type vm:RemoteRepositoryItemViewModel}">
+      <Grid MinHeight="52" Background="Transparent" ToolTip="{Binding ToolTip}">
+        <Grid.InputBindings>
+          <MouseBinding Command="{Binding DataContext.CloneCommand, ElementName=Root}" Gesture="LeftDoubleClick" />
+        </Grid.InputBindings>
+        <Grid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Command="{Binding PlacementTarget.Tag.OpenRepositoryInBrowserCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding}" Header="Open on GitHub">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Globe16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+        <Grid.Tag>
+          <Binding Path="DataContext" ElementName="Root" />
+        </Grid.Tag>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <controls:ProjectAvatar VerticalAlignment="Center" ProjectName="{Binding Owner}" Size="28" />
+
+        <StackPanel Grid.Column="1" Margin="12,6,12,6" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Owner, StringFormat={}{0} /}" />
+            <TextBlock Margin="4,0,0,0" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+            <controls:Pill Margin="8,0,0,0" Icon="LockClosed12" Text="Private" Visibility="{Binding IsPrivate, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="4,0,0,0" Icon="BranchFork16" Text="Fork" Visibility="{Binding IsFork, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="4,0,0,0" Kind="Warning" Icon="Archive16" Text="Archived" Visibility="{Binding IsArchived, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="4,0,0,0" Kind="Success" Icon="Checkmark16" Text="In ForgeDesk"
+                           Visibility="{Binding IsAlreadyAdded, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Description}"
+                     Visibility="{Binding Description, Converter={StaticResource NullToCollapsed}}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+          <TextBlock Margin="0,0,14,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Language}"
+                     Visibility="{Binding Language, Converter={StaticResource NullToCollapsed}}" />
+          <StackPanel Margin="0,0,14,0" Orientation="Horizontal" ToolTip="Stars" Visibility="{Binding HasStars, Converter={StaticResource BoolToVisibility}}">
+            <ui:SymbolIcon FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Star12" />
+            <TextBlock Margin="3,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding StarsText}" />
+          </StackPanel>
+          <TextBlock Width="84" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" TextAlignment="Right">
+            <TextBlock.Text>
+              <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                <Binding Path="UpdatedAt" />
+                <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border Background="{DynamicResource ContentDialogTopOverlay}">
+      <Grid Margin="24,4,24,16">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" MinHeight="160" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Source tabs -->
+        <ListBox AutomationProperties.AutomationId="Clone.Tabs" AutomationProperties.Name="Clone from" IsEnabled="{Binding CanEditInputs}"
+                 ItemContainerStyle="{StaticResource CloneTabItemStyle}" ItemsSource="{Binding Tabs}"
+                 SelectedItem="{Binding SelectedTab, Mode=TwoWay}" Style="{StaticResource ForgeWorkspaceTabStripStyle}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:CloneSourceTab}">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="16"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                               Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+                <TextBlock VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                           Text="{Binding Title}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- ===== GitHub repositories ===== -->
+        <Grid Grid.Row="1" Margin="0,16,0,0" Visibility="{Binding IsGitHubSource, Converter={StaticResource BoolToVisibility}}">
+          <!-- Signed out -->
+          <controls:EmptyState AutomationProperties.AutomationId="Clone.SignInPrompt" ActionCommand="{Binding SignInCommand}" ActionText="Sign in to GitHub"
+                               Description="ForgeDesk lists the repositories you own, collaborate on or reach through your organizations. Sign in once in Settings › GitHub."
+                               Icon="PersonCircle24" SecondaryActionCommand="{Binding UseUrlInsteadCommand}" SecondaryActionText="Use a URL instead"
+                               Title="Sign in to see your repositories"
+                               Visibility="{Binding ShowSignInPrompt, Converter={StaticResource BoolToVisibility}}" />
+
+          <!-- Signed in -->
+          <Grid Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibility}}">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <ui:TextBox x:Name="RepositorySearch" AutomationProperties.AutomationId="Clone.RepositorySearch" AutomationProperties.Name="Filter repositories"
+                          ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}" IsEnabled="{Binding CanEditInputs}"
+                          PlaceholderText="Filter by name, description or language"
+                          Text="{Binding RepositoryFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}"
+                         Text="{Binding SignedInText}" />
+              <ui:Button Grid.Column="2" AutomationProperties.AutomationId="Clone.ReloadRepositoriesButton" AutomationProperties.Name="Reload repositories"
+                         Command="{Binding LoadRepositoriesCommand}" Icon="{ui:SymbolIcon ArrowClockwise16}" Style="{StaticResource ForgeIconButtonStyle}"
+                         ToolTip="Reload the list" />
+            </Grid>
+
+            <Border Grid.Row="1" Margin="0,10,0,0" Style="{StaticResource ForgeSectionCardFlushStyle}">
+              <Grid>
+                <controls:SkeletonList RowCount="7" RowHeight="52" Visibility="{Binding ShowRepositorySkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <controls:ErrorPanel Margin="16" VerticalAlignment="Top" Error="{Binding RepositoriesError}" RetryCommand="{Binding LoadRepositoriesCommand}" />
+                <controls:EmptyState ActionCommand="{Binding UseUrlInsteadCommand}" ActionText="Use a URL instead"
+                                     Description="This account has no repositories yet. Paste the address of any repository instead." Icon="Box20"
+                                     Title="No repositories" Visibility="{Binding ShowNoRepositories, Converter={StaticResource BoolToVisibility}}" />
+                <controls:EmptyState Description="Try another word, or paste the address in the URL tab." Icon="Search24" Title="No repository matches"
+                                     Visibility="{Binding ShowNoRepositoryMatches, Converter={StaticResource BoolToVisibility}}" />
+                <ListBox AutomationProperties.AutomationId="Clone.RepositoryList" AutomationProperties.Name="Your repositories"
+                         IsEnabled="{Binding CanEditInputs}" ItemTemplate="{StaticResource RepositoryTemplate}" ItemsSource="{Binding Repositories}"
+                         SelectedItem="{Binding SelectedRepository, Mode=TwoWay}" Style="{StaticResource ForgeDenseListBoxStyle}"
+                         Visibility="{Binding ShowRepositoryList, Converter={StaticResource BoolToVisibility}}">
+                  <ListBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding CloneCommand}" />
+                  </ListBox.InputBindings>
+                </ListBox>
+              </Grid>
+            </Border>
+          </Grid>
+        </Grid>
+
+        <!-- ===== URL ===== -->
+        <StackPanel Grid.Row="1" Margin="0,16,0,0" Visibility="{Binding IsUrlSource, Converter={StaticResource BoolToVisibility}}">
+          <TextBlock Style="{StaticResource CloneFieldLabelStyle}" Text="Repository address" />
+          <ui:TextBox x:Name="UrlBox" AutomationProperties.AutomationId="Clone.UrlBox" AutomationProperties.Name="Repository address"
+                      ClearButtonEnabled="True" FontFamily="{DynamicResource ForgeMonoFont}" Icon="{ui:SymbolIcon Link16}"
+                      IsEnabled="{Binding CanEditInputs}" PlaceholderText="https://github.com/owner/repo.git"
+                      Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+            <ui:TextBox.InputBindings>
+              <KeyBinding Key="Enter" Command="{Binding CloneCommand}" />
+            </ui:TextBox.InputBindings>
+          </ui:TextBox>
+          <TextBlock Style="{StaticResource CloneErrorTextStyle}" Text="{Binding UrlError}"
+                     Visibility="{Binding UrlError, Converter={StaticResource NullToCollapsed}}" />
+          <TextBlock Margin="0,8,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                     Text="HTTPS, SSH (git@host:owner/repo.git) and local repository paths work. Private repositories use your GitHub sign-in or Git Credential Manager." />
+
+          <Border Margin="0,16,0,0" Style="{StaticResource ForgeSectionCardStyle}"
+                  Visibility="{Binding HasParsedGitHubRepo, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+              <controls:ProjectAvatar ProjectName="{Binding ParsedGitHubRepo.Owner}" Size="32" />
+              <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="GitHub repository" />
+                <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding ParsedGitHubRepo.FullName}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ===== Destination ===== -->
+        <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource ForgeSectionCardStyle}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="3*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Style="{StaticResource CloneFieldLabelStyle}" Text="Clone into" />
+            <DockPanel Grid.Row="1">
+              <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Clone.ChangeFolderButton" Command="{Binding ChangeBaseFolderCommand}"
+                         Content="Change…" DockPanel.Dock="Right" ToolTip="Choose the parent folder" />
+              <ui:TextBox AutomationProperties.AutomationId="Clone.BaseFolderBox" AutomationProperties.Name="Parent folder" ClearButtonEnabled="False"
+                          Icon="{ui:SymbolIcon Folder16}" IsEnabled="{Binding CanEditInputs}"
+                          Text="{Binding BaseFolder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </DockPanel>
+
+            <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource CloneFieldLabelStyle}" Text="Folder name" />
+            <ui:TextBox Grid.Row="1" Grid.Column="2" AutomationProperties.AutomationId="Clone.FolderNameBox" AutomationProperties.Name="Folder name"
+                        ClearButtonEnabled="False" IsEnabled="{Binding CanEditInputs}" PlaceholderText="repository name"
+                        Text="{Binding FolderName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0" Orientation="Horizontal">
+              <ui:SymbolIcon FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="ArrowRight16" />
+              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" AutomationProperties.AutomationId="Clone.TargetPath" Style="{StaticResource ForgeMonoSecondary}"
+                         Text="{Binding TargetPath}" ToolTip="{Binding TargetPath}" />
+            </StackPanel>
+            <TextBlock Grid.Row="3" Grid.ColumnSpan="3" AutomationProperties.AutomationId="Clone.DestinationError" Style="{StaticResource CloneErrorTextStyle}"
+                       Text="{Binding DestinationError}" Visibility="{Binding DestinationError, Converter={StaticResource NullToCollapsed}}" />
+          </Grid>
+        </Border>
+
+        <!-- ===== Progress, result ===== -->
+        <StackPanel Grid.Row="3">
+          <Border Margin="0,12,0,0" AutomationProperties.AutomationId="Clone.Progress" Style="{StaticResource ForgeSectionCardStyle}"
+                  Visibility="{Binding IsCloning, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                  <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" />
+                  <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding ProgressStage}" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}"
+                           Text="{Binding ProgressPercent, StringFormat={}{0:0}%}"
+                           Visibility="{Binding IsProgressIndeterminate, Converter={StaticResource InverseBoolToVisibility}}" />
+              </Grid>
+              <ProgressBar Height="4" Margin="0,10,0,0" IsIndeterminate="{Binding IsProgressIndeterminate}" Maximum="100" Minimum="0"
+                           Value="{Binding ProgressPercent, Mode=OneWay}" />
+              <TextBlock Margin="0,8,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding ProgressMessage}"
+                         Visibility="{Binding ProgressMessage, Converter={StaticResource NullToCollapsed}}" />
+            </StackPanel>
+          </Border>
+
+          <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeBodySecondary}" Text="{Binding StatusText}"
+                     Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
+
+          <controls:ErrorPanel Margin="0,12,0,0" AutomationProperties.AutomationId="Clone.Error" Error="{Binding CloneError}"
+                               RetryCommand="{Binding CloneCommand}" RetryText="Try again" />
+          <ui:Button Margin="0,8,0,0" HorizontalAlignment="Left" AutomationProperties.AutomationId="Clone.ErrorSignInButton" Command="{Binding SignInCommand}"
+                     Content="Sign in to GitHub" Icon="{ui:SymbolIcon Person16}"
+                     Visibility="{Binding IsAuthenticationError, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ===== Footer ===== -->
+    <Border Grid.Row="1" Padding="24,16" BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}" BorderThickness="0,1,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}"
+                   Visibility="{Binding SourceSummary, Converter={StaticResource NullToCollapsed}}">
+          <Run Text="Cloning" />
+          <Run FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding SourceSummary, Mode=OneWay}" />
+        </TextBlock>
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <ui:Button MinWidth="120" Appearance="Primary" AutomationProperties.AutomationId="Clone.CloneButton" Command="{Binding CloneCommand}"
+                     Icon="{ui:SymbolIcon CloudArrowDown20}" IsDefault="False">
+            <TextBlock Text="Clone" />
+          </ui:Button>
+          <ui:Button MinWidth="120" Margin="8,0,0,0" AutomationProperties.AutomationId="Clone.CancelButton" Command="{Binding CancelCommand}"
+                     Content="{Binding CancelText}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

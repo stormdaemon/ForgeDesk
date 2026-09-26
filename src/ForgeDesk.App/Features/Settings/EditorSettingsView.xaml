@@ -1,0 +1,56 @@
+<UserControl x:Class="ForgeDesk.App.Features.Settings.EditorSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Settings;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:EditorSettingsViewModel}"
+             d:DesignWidth="800"
+             Focusable="False">
+  <StackPanel>
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Code editor" />
+    <ui:CardControl AutomationProperties.AutomationId="Settings.DetectedEditorCard" Icon="{ui:SymbolIcon Code24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Editor used by “Open in editor”" />
+          <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+            <controls:StatusDot Margin="0,0,8,0" VerticalAlignment="Center" Status="Success" Visibility="{Binding HasEditor, Converter={StaticResource BoolToVisibility}}" />
+            <controls:StatusDot Margin="0,0,8,0" VerticalAlignment="Center" Status="Warning"
+                                Visibility="{Binding HasEditor, Converter={StaticResource InverseBoolToVisibility}}" />
+            <TextBlock AutomationProperties.AutomationId="Settings.DetectedEditor" Style="{StaticResource SettingsDescriptionStyle}" Margin="0" Text="{Binding EditorText}" />
+          </StackPanel>
+        </StackPanel>
+      </ui:CardControl.Header>
+    </ui:CardControl>
+
+    <Border Style="{StaticResource SettingsPanelStyle}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Custom editor command" />
+        <TextBlock Style="{StaticResource SettingsDescriptionStyle}" TextWrapping="Wrap">
+          <Run Text="Leave empty to use the editor found automatically (Visual Studio Code is detected as" />
+          <Run FontFamily="{DynamicResource ForgeMonoFont}" Text="code" />
+          <Run Text="). Otherwise enter the program and its arguments; ForgeDesk replaces" />
+          <Run FontFamily="{DynamicResource ForgeMonoFont}" Text="{}{file}" />
+          <Run Text="," />
+          <Run FontFamily="{DynamicResource ForgeMonoFont}" Text="{}{line}" />
+          <Run Text="and" />
+          <Run FontFamily="{DynamicResource ForgeMonoFont}" Text="{}{column}" />
+          <Run Text="(the path is added at the end when {file} is missing)." />
+        </TextBlock>
+        <ui:TextBox Margin="0,12,0,0" AutomationProperties.AutomationId="Settings.EditorCommandBox" AutomationProperties.Name="Custom editor command"
+                    ClearButtonEnabled="True" FontFamily="{DynamicResource ForgeMonoFont}" Icon="{ui:SymbolIcon Code16}"
+                    PlaceholderText="&quot;C:\Tools\subl.exe&quot; {file}:{line}"
+                    Text="{Binding EditorCommand, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Style="{StaticResource SettingsValidationStyle}" Text="{Binding EditorCommandError}"
+                   Visibility="{Binding HasEditorCommandError, Converter={StaticResource BoolToVisibility}}" />
+        <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+          <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Example:" />
+          <TextBlock Margin="6,0,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="&quot;C:\Tools\subl.exe&quot; {file}:{line}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

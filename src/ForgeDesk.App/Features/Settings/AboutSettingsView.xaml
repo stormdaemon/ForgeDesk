@@ -1,0 +1,98 @@
+<UserControl x:Class="ForgeDesk.App.Features.Settings.AboutSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Settings;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AboutSettingsViewModel}"
+             d:DesignWidth="800"
+             x:Name="Root"
+             Focusable="False">
+  <StackPanel>
+    <!-- Identity -->
+    <Border Margin="0,12,0,4" AutomationProperties.AutomationId="Settings.AboutCard" Style="{StaticResource SettingsPanelStyle}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Image Width="72" Height="72" RenderOptions.BitmapScalingMode="HighQuality" Source="{StaticResource ForgeLogoImage}" />
+        <StackPanel Grid.Column="1" Margin="20,0,12,0" VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeTitle}" Text="ForgeDesk" />
+          <TextBlock Margin="0,2,0,0" AutomationProperties.AutomationId="Settings.AboutVersion" Style="{StaticResource ForgeBodySecondary}" Text="{Binding VersionText}" />
+          <TextBlock Margin="0,6,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Runtime}" />
+          <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding OperatingSystem}" />
+        </StackPanel>
+        <ui:Button Grid.Column="2" VerticalAlignment="Top" AutomationProperties.AutomationId="Settings.CopyVersionButton" Command="{Binding CopyVersionInfoCommand}"
+                   Content="Copy info" Icon="{ui:SymbolIcon Copy16}" ToolTip="Copy the version, runtime and Windows version for a bug report" />
+      </Grid>
+    </Border>
+
+    <!-- Links -->
+    <ui:CardControl Icon="{ui:SymbolIcon Globe24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Source code" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="github.com/stormdaemon/ForgeDesk" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <ui:Button AutomationProperties.AutomationId="Settings.OpenRepositoryButton" Command="{Binding OpenRepositoryCommand}" Content="Repository"
+                   Icon="{ui:SymbolIcon Open16}" />
+        <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Settings.OpenReleasesButton" Command="{Binding OpenReleasesCommand}" Content="Release notes" />
+      </StackPanel>
+    </ui:CardControl>
+    <ui:CardControl Icon="{ui:SymbolIcon Bug24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Report an issue" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="Describe what happened; the logs folder (Data &amp; storage) helps a lot." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:Button AutomationProperties.AutomationId="Settings.ReportIssueButton" Command="{Binding ReportIssueCommand}" Content="Report an issue"
+                 Icon="{ui:SymbolIcon Open16}" />
+    </ui:CardControl>
+    <ui:CardControl Icon="{ui:SymbolIcon DocumentText24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="{Binding License}" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="{Binding Copyright}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:Button AutomationProperties.AutomationId="Settings.OpenLicenseButton" Command="{Binding OpenLicenseCommand}" Content="Read the license" />
+    </ui:CardControl>
+
+    <!-- Third-party notices -->
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Third-party notices" />
+    <Border Padding="0,6" AutomationProperties.AutomationId="Settings.ThirdPartyNotices" Style="{StaticResource SettingsPanelStyle}">
+      <StackPanel>
+        <TextBlock Margin="16,6,16,10" Style="{StaticResource SettingsDescriptionStyle}"
+                   Text="ForgeDesk is built on these open-source components. Thank you to their authors." />
+        <ItemsControl Focusable="False" ItemsSource="{Binding Notices}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:ThirdPartyNotice}">
+              <Grid MinHeight="36" Margin="16,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding Purpose}" />
+                <controls:Pill Grid.Column="2" Margin="12,0,8,0" Text="{Binding License}" />
+                <ui:Button Grid.Column="3" AutomationProperties.Name="{Binding Name, StringFormat=Open the project page of {0}}"
+                           Command="{Binding DataContext.OpenNoticeCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Open16}"
+                           Style="{StaticResource ForgeIconButtonStyle}" ToolTip="{Binding Url}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>
