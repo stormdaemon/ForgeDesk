@@ -47,7 +47,10 @@ public sealed record GitStatusEntry
 
 public sealed record GitStatus
 {
-    /// <summary>Current branch name, or null when HEAD is detached / repository has no commits yet.</summary>
+    /// <summary>
+    /// Current branch name, or null when HEAD is detached. An unborn branch (repository without
+    /// commits yet) still reports its name, with <see cref="IsUnborn"/> set.
+    /// </summary>
     public string? Branch { get; init; }
     public string? HeadSha { get; init; }
     public bool IsDetached { get; init; }
@@ -122,7 +125,14 @@ public enum DiffLineKind
     NoNewlineMarker,
 }
 
-public sealed record DiffLine(DiffLineKind Kind, string Text, int? OldLineNumber, int? NewLineNumber);
+public sealed record DiffLine(DiffLineKind Kind, string Text, int? OldLineNumber, int? NewLineNumber)
+{
+    /// <summary>
+    /// True when the line ends with CR LF in the file. <see cref="Text"/> never contains the CR, so it
+    /// can be displayed as is; the flag lets patches rebuilt from the diff reproduce the file exactly.
+    /// </summary>
+    public bool HasCarriageReturn { get; init; }
+}
 
 public sealed record DiffHunk
 {
