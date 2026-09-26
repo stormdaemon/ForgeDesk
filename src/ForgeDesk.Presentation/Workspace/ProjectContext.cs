@@ -30,6 +30,7 @@ public sealed partial class ProjectContext : ObservableObject, IDisposable
         _detector = detector;
         _registry = registry;
         _dispatcher = dispatcher;
+        Lifetime = _lifetime.Token;
     }
 
     [ObservableProperty]
@@ -58,8 +59,11 @@ public sealed partial class ProjectContext : ObservableObject, IDisposable
 
     public bool FolderExists => Directory.Exists(Root);
 
-    /// <summary>Cancelled when the project is closed.</summary>
-    public CancellationToken Lifetime => _lifetime.Token;
+    /// <summary>
+    /// Cancelled when the project is closed. Captured once so work that outlives the context still
+    /// observes cancellation instead of an ObjectDisposedException.
+    /// </summary>
+    public CancellationToken Lifetime { get; }
 
     /// <summary>Raised on the UI thread after <see cref="GitStatus"/> is refreshed.</summary>
     public event EventHandler? GitStatusChanged;

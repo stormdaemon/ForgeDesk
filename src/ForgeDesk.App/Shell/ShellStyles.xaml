@@ -1,0 +1,187 @@
+<!--
+  Styles of the main window chrome: title bar search box and breadcrumb, sidebar entries, status bar
+  items. Merged by Features/Shell/ShellTemplates.xaml. Brushes are DynamicResource (light + dark).
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:shell="clr-namespace:ForgeDesk.App.Shell">
+
+  <shell:StatusToneToKindConverter x:Key="StatusToneToKind" />
+  <shell:StatusToneToVisibilityConverter x:Key="StatusToneToVisibility" />
+  <shell:StatusToneToBrushConverter x:Key="StatusToneToBrush" />
+  <shell:InverseBooleanConverter x:Key="InverseBoolean" />
+  <shell:IsNullConverter x:Key="IsNull" />
+
+  <!-- Keyboard focus ring shared by the custom buttons below. -->
+  <Style x:Key="ShellFocusVisualStyle">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-1" RadiusX="5" RadiusY="5" SnapsToDevicePixels="True" StrokeThickness="2"
+                     Stroke="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Title bar ================================================================== -->
+
+  <!-- Windows 11-style search field: a button that opens the command palette. -->
+  <Style x:Key="ShellSearchBoxStyle" TargetType="Button">
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Padding" Value="12,0,6,0" />
+    <Setter Property="Cursor" Value="IBeam" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ShellFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Quiet text button (breadcrumb segment, account button). -->
+  <Style x:Key="ShellQuietButtonStyle" TargetType="Button">
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ShellFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}"
+                  SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Sidebar ==================================================================== -->
+
+  <!--
+    Sidebar entry bound to an item view model with IsCurrent: subtle fill and an ember pill when it
+    is the page on screen. Height comes from the concrete styles below.
+  -->
+  <Style x:Key="ShellSidebarButtonBaseStyle" TargetType="Button">
+    <Setter Property="Margin" Value="4,1" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ShellFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid SnapsToDevicePixels="True">
+            <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="4" />
+            <Rectangle x:Name="Pill" Width="3" Height="16" RadiusX="1.5" RadiusY="1.5" HorizontalAlignment="Left"
+                       VerticalAlignment="Center" Fill="{DynamicResource ForgeAccentBrush}" Visibility="Collapsed" />
+            <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ShellNavButtonStyle" TargetType="Button" BasedOn="{StaticResource ShellSidebarButtonBaseStyle}">
+    <Setter Property="Height" Value="36" />
+  </Style>
+
+  <Style x:Key="ShellProjectButtonStyle" TargetType="Button" BasedOn="{StaticResource ShellSidebarButtonBaseStyle}">
+    <Setter Property="Height" Value="42" />
+    <Setter Property="Padding" Value="10,0,10,0" />
+  </Style>
+
+  <!-- "PINNED" / "RECENT" -->
+  <Style x:Key="ShellSidebarHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="16,14,16,4" />
+  </Style>
+
+  <!-- Square icon button of the sidebar footer and the collapsed rail. -->
+  <Style x:Key="ShellFooterIconButtonStyle" TargetType="ui:Button" BasedOn="{StaticResource ForgeIconButtonStyle}">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+  </Style>
+
+  <!-- ===== Status bar ================================================================= -->
+
+  <Style x:Key="ShellStatusItemStyle" TargetType="Button">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ShellFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ShellStatusTextStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaption}">
+    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+</ResourceDictionary>

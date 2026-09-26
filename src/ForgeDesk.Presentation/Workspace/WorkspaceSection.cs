@@ -34,6 +34,9 @@ public interface IWorkspaceSectionViewModel
 public interface IWorkspaceSectionFactory
 {
     IWorkspaceSectionViewModel Create(WorkspaceSection section, ProjectContext context);
+
+    /// <summary>True when a feature registered a view model for <paramref name="section"/>; other tabs are hidden.</summary>
+    bool IsAvailable(WorkspaceSection section) => true;
 }
 
 /// <summary>
