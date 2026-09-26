@@ -323,7 +323,7 @@ public class RunServiceTests
         running!.Status.Should().Be(RunStatus.Interrupted);
         running.EndedAt.Should().NotBeNull();
         running.ErrorSummary.Should().Be("ForgeDesk was closed while this command was running.");
-        running.Category.Should().Be(Detection.CommandCategory.Dev);
+        running.Category.Should().Be(ForgeDesk.Core.Detection.CommandCategory.Dev);
         (await fx.Service.GetAsync("stale-queued", Ct))!.Status.Should().Be(RunStatus.Interrupted);
         (await fx.Service.GetAsync("finished", Ct))!.Status.Should().Be(RunStatus.Succeeded);
         (await fx.Service.RecoverInterruptedRunsAsync(Ct)).Should().Be(0);
