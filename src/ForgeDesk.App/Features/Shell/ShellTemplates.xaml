@@ -1,0 +1,16 @@
+<!--
+  Shell feature: the main window content (title bar, sidebar, pages, status bar, palette) for
+  ShellViewModel, plus the chrome styles. Merged by App.xaml.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:shell="clr-namespace:ForgeDesk.App.Shell"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.Shell;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Shell/ShellStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:ShellViewModel}">
+    <shell:ShellView />
+  </DataTemplate>
+</ResourceDictionary>

@@ -1,0 +1,63 @@
+<dialogs:ForgeDialogWindow x:Class="ForgeDesk.App.Dialogs.ErrorDialog"
+                           xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                           xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                           xmlns:dialogs="clr-namespace:ForgeDesk.App.Dialogs"
+                           Width="540">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar CanMaximize="False" ShowMaximize="False" ShowMinimize="False" />
+
+    <Border Grid.Row="1" Background="{DynamicResource ContentDialogTopOverlay}">
+      <Grid Margin="24,8,24,24">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <ui:SymbolIcon x:Name="KindIcon" Margin="0,2,14,0" VerticalAlignment="Top" FontSize="28"
+                       Foreground="{DynamicResource ForgeDangerBrush}" Symbol="ErrorCircle24" />
+
+        <StackPanel Grid.Column="1">
+          <TextBlock x:Name="HeadingText" Style="{StaticResource ForgeTitle}" TextWrapping="Wrap" />
+          <TextBlock x:Name="MessageText" Margin="0,10,0,0" Style="{StaticResource ForgeBody}" TextWrapping="Wrap" />
+
+          <Grid x:Name="HintRow" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ui:SymbolIcon Margin="0,1,6,0" VerticalAlignment="Top" FontSize="16"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Lightbulb16" />
+            <TextBlock x:Name="HintText" Grid.Column="1" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap" />
+          </Grid>
+
+          <Expander x:Name="DetailsExpander" Margin="0,14,0,0" Header="Technical details">
+            <TextBox x:Name="DetailText" MaxHeight="240" Margin="0,8,0,0" Style="{StaticResource ForgeReadOnlyMonoTextBoxStyle}" />
+          </Expander>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Padding="24,20" BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}" BorderThickness="0,1,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:Button x:Name="CopyButton" Appearance="Secondary" Click="OnCopy" Content="Copy details" Icon="{ui:SymbolIcon Copy16}" />
+        <ui:Button x:Name="LogsButton" Grid.Column="1" Margin="8,0,0,0" Appearance="Transparent" Click="OnOpenLogs"
+                   Content="Open logs folder" Icon="{ui:SymbolIcon FolderOpen16}" Visibility="Collapsed" />
+        <ui:Button x:Name="CloseButton" Grid.Column="3" MinWidth="96" Appearance="Primary" Click="OnClose" Content="Close"
+                   IsDefault="True" />
+      </Grid>
+    </Border>
+  </Grid>
+</dialogs:ForgeDialogWindow>

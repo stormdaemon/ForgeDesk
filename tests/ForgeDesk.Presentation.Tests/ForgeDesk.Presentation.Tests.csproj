@@ -18,4 +18,41 @@
     <Using Include="Xunit" />
     <Using Include="AwesomeAssertions" />
   </ItemGroup>
+
+  <!--
+    The app targets Windows (WPF), so this project cannot reference it. Its platform-neutral
+    logic (no WPF/Win32 types) is compiled in here from source and tested on every OS.
+  -->
+  <PropertyGroup>
+    <AppSourceDirectory>..\..\src\ForgeDesk.App\</AppSourceDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(AppSourceDirectory)Activation\ActivationMessage.cs" Link="AppSources\Activation\ActivationMessage.cs" />
+    <Compile Include="$(AppSourceDirectory)Activation\ActivationPipeClient.cs" Link="AppSources\Activation\ActivationPipeClient.cs" />
+    <Compile Include="$(AppSourceDirectory)Activation\ActivationPipeServer.cs" Link="AppSources\Activation\ActivationPipeServer.cs" />
+    <Compile Include="$(AppSourceDirectory)Activation\ActivationRequest.cs" Link="AppSources\Activation\ActivationRequest.cs" />
+    <Compile Include="$(AppSourceDirectory)Activation\InstanceIdentity.cs" Link="AppSources\Activation\InstanceIdentity.cs" />
+    <Compile Include="$(AppSourceDirectory)Activation\SingleInstanceGuard.cs" Link="AppSources\Activation\SingleInstanceGuard.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\AvatarText.cs" Link="AppSources\Controls\AvatarText.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\CiText.cs" Link="AppSources\Controls\CiText.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\Code\SyntaxLanguageMap.cs" Link="AppSources\Controls\Code\SyntaxLanguageMap.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\Diff\DiffRow.cs" Link="AppSources\Controls\Diff\DiffRow.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\ErrorInfoText.cs" Link="AppSources\Controls\ErrorInfoText.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\KeyHintParser.cs" Link="AppSources\Controls\KeyHintParser.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\StatusKind.cs" Link="AppSources\Controls\StatusKind.cs" />
+    <Compile Include="$(AppSourceDirectory)Controls\StatusResources.cs" Link="AppSources\Controls\StatusResources.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Editors\EditorCommandBuilder.cs" Link="AppSources\Services\Editors\EditorCommandBuilder.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Editors\EditorInfo.cs" Link="AppSources\Services\Editors\EditorInfo.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Editors\EditorLocator.cs" Link="AppSources\Services\Editors\EditorLocator.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Launching\LaunchCommand.cs" Link="AppSources\Services\Launching\LaunchCommand.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Launching\WindowsCommandLine.cs" Link="AppSources\Services\Launching\WindowsCommandLine.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Security\CredentialTarget.cs" Link="AppSources\Services\Security\CredentialTarget.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Windowing\JumpListPlanner.cs" Link="AppSources\Services\Windowing\JumpListPlanner.cs" />
+    <Compile Include="$(AppSourceDirectory)Services\Windowing\WindowPlacementCalculator.cs" Link="AppSources\Services\Windowing\WindowPlacementCalculator.cs" />
+    <Compile Include="$(AppSourceDirectory)Startup\AppInfo.cs" Link="AppSources\Startup\AppInfo.cs" />
+    <Compile Include="$(AppSourceDirectory)Startup\CrashReport.cs" Link="AppSources\Startup\CrashReport.cs" />
+    <Compile Include="$(AppSourceDirectory)Startup\DatabaseRecoveryMessage.cs" Link="AppSources\Startup\DatabaseRecoveryMessage.cs" />
+    <Compile Include="$(AppSourceDirectory)Theming\BrandPalette.cs" Link="AppSources\Theming\BrandPalette.cs" />
+    <Compile Include="$(AppSourceDirectory)Theming\ColorMath.cs" Link="AppSources\Theming\ColorMath.cs" />
+  </ItemGroup>
 </Project>

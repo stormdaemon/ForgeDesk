@@ -1,0 +1,121 @@
+<UserControl x:Class="ForgeDesk.App.Features.Workspace.BranchSelector"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Workspace;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:BranchSelectorViewModel}"
+             x:Name="Root">
+  <UserControl.Resources>
+    <DataTemplate x:Key="BranchRowTemplate" DataType="{x:Type vm:BranchItemViewModel}">
+      <Button Command="{Binding DataContext.CheckoutCommand, ElementName=Root}" CommandParameter="{Binding}"
+              Style="{StaticResource WorkspaceFlyoutRowStyle}" ToolTip="{Binding ToolTip}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="20" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:SymbolIcon VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource ForgeAccentTextBrush}" Symbol="Checkmark16"
+                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToHidden}}" />
+          <StackPanel Grid.Column="1" Margin="6,0,8,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Name}">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource ForgeMono}">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                      <Setter Property="FontWeight" Value="SemiBold" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding TipSubject}"
+                       Visibility="{Binding TipSubject, Converter={StaticResource NullToCollapsed}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+            <TextBlock Margin="0,0,6,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Ahead, StringFormat=↑{0}}"
+                       Visibility="{Binding Ahead, Converter={StaticResource ZeroToCollapsed}}" />
+            <TextBlock Margin="0,0,6,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Behind, StringFormat=↓{0}}"
+                       Visibility="{Binding Behind, Converter={StaticResource ZeroToCollapsed}}" />
+            <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding TipDate, Converter={StaticResource RelativeTime}}"
+                       Visibility="{Binding TipDate, Converter={StaticResource NullToCollapsed}}" />
+          </StackPanel>
+        </Grid>
+      </Button>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <ToggleButton x:Name="Toggle" AutomationProperties.Name="Switch branch" IsChecked="{Binding IsOpen, Mode=TwoWay}"
+                  IsEnabled="{Binding IsRepository}" IsHitTestVisible="{Binding IsOpen, ElementName=Flyout, Converter={StaticResource InverseBoolean}}"
+                  Style="{StaticResource WorkspaceDropDownToggleStyle}" ToolTip="Switch or create a branch">
+      <StackPanel Orientation="Horizontal">
+        <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="16" Symbol="BranchFork16" />
+        <TextBlock MaxWidth="220" VerticalAlignment="Center" FontWeight="SemiBold" Style="{StaticResource ForgeMono}"
+                   Text="{Binding CurrentBranchDisplay, TargetNullValue=…}" />
+        <Grid Width="16" Margin="8,0,0,0" VerticalAlignment="Center">
+          <ui:SymbolIcon FontSize="12" Symbol="ChevronDown12" Visibility="{Binding IsSwitching, Converter={StaticResource InverseBoolToVisibility}}" />
+          <ui:ProgressRing Width="12" Height="12" IsIndeterminate="True" Visibility="{Binding IsSwitching, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+      </StackPanel>
+    </ToggleButton>
+
+    <Popup x:Name="Flyout" AllowsTransparency="True" IsOpen="{Binding IsOpen, Mode=TwoWay}" Opened="OnFlyoutOpened" Placement="Bottom"
+           PlacementTarget="{Binding ElementName=Toggle}" PopupAnimation="Fade" StaysOpen="False" VerticalOffset="2" HorizontalOffset="-12">
+      <Border Width="360" MaxHeight="480" Margin="12,0,12,16" Style="{StaticResource WorkspaceFlyoutCardStyle}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <ui:TextBox x:Name="FilterBox" Margin="8,8,8,4" ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}" PlaceholderText="Filter branches"
+                      Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="OnFilterKeyDown">
+            <ui:TextBox.InputBindings>
+              <KeyBinding Key="Enter" Command="{Binding CheckoutFirstMatchCommand}" />
+            </ui:TextBox.InputBindings>
+          </ui:TextBox>
+
+          <Button Grid.Row="1" Command="{Binding CreateBranchCommand}" Style="{StaticResource WorkspaceFlyoutRowStyle}">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon Width="20" VerticalAlignment="Center" FontSize="16" Symbol="Add16" />
+              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="Create branch…" />
+            </StackPanel>
+          </Button>
+
+          <Grid Grid.Row="2">
+            <Rectangle VerticalAlignment="Top" Style="{StaticResource ForgeDividerStyle}" />
+            <ScrollViewer x:Name="BranchList" Margin="0,1,0,0" Padding="0,0,0,6" Focusable="False" HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <TextBlock Style="{StaticResource WorkspaceFlyoutHeaderStyle}" Text="LOCAL BRANCHES"
+                           Visibility="{Binding LocalBranches.Count, Converter={StaticResource ZeroToCollapsed}}" />
+                <ItemsControl Focusable="False" ItemTemplate="{StaticResource BranchRowTemplate}" ItemsSource="{Binding LocalBranches}" />
+
+                <StackPanel Visibility="{Binding HasRemoteBranches, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource WorkspaceFlyoutHeaderStyle}" Text="CHECKOUT REMOTE BRANCH" />
+                  <ItemsControl Focusable="False" ItemTemplate="{StaticResource BranchRowTemplate}" ItemsSource="{Binding RemoteBranches}" />
+                </StackPanel>
+
+                <TextBlock Margin="12,16" HorizontalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="No branch matches this filter."
+                           Visibility="{Binding HasNoMatches, Converter={StaticResource BoolToVisibility}}" />
+                <controls:LoadingState Margin="12,16" IsActive="{Binding IsLoading}" Message="Loading branches…"
+                                       Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel Margin="12,12" Visibility="{Binding LoadError, Converter={StaticResource NullToCollapsed}}">
+                  <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding LoadError.Title}" TextWrapping="Wrap" />
+                  <TextBlock Margin="0,4,0,8" Style="{StaticResource ForgeBodySecondary}" Text="{Binding LoadError.Message}" TextWrapping="Wrap" />
+                  <ui:Button Command="{Binding LoadCommand}" Content="Retry" Icon="{ui:SymbolIcon ArrowClockwise16}" />
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Grid>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

@@ -18,6 +18,8 @@ public sealed class WorkspaceSectionFactory : IWorkspaceSectionFactory
 
     public IReadOnlyCollection<WorkspaceSection> AvailableSections => _types.Keys;
 
+    public bool IsAvailable(WorkspaceSection section) => _types.ContainsKey(section);
+
     public IWorkspaceSectionViewModel Create(WorkspaceSection section, ProjectContext context)
     {
         if (!_types.TryGetValue(section, out var type))

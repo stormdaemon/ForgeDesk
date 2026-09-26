@@ -1,0 +1,8 @@
+<!--
+  Releases feature: implicit DataTemplates that map its view models to views, for example
+  <DataTemplate DataType="{x:Type vm:SomeViewModel}"><views:SomeView /></DataTemplate>
+  Merged by App.xaml.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+</ResourceDictionary>

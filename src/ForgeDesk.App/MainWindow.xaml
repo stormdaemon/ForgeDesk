@@ -1,0 +1,74 @@
+<ui:FluentWindow x:Class="ForgeDesk.App.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="{Binding WindowTitle, FallbackValue=ForgeDesk, TargetNullValue=ForgeDesk}"
+                 Width="1400"
+                 Height="900"
+                 MinWidth="960"
+                 MinHeight="600"
+                 ExtendsContentIntoTitleBar="True"
+                 FontFamily="{DynamicResource ForgeUIFont}"
+                 FontSize="13"
+                 Icon="pack://application:,,,/Assets/ForgeDesk.ico"
+                 WindowBackdropType="Mica"
+                 WindowCornerPreference="Round"
+                 WindowStartupLocation="Manual">
+  <!--
+    Window-level shortcuts owned by the shell (docs/DESIGN.md › Keyboard). Feature shortcuts
+    (Ctrl+Enter, Ctrl+N, Ctrl+Shift+F…) are declared by the feature views themselves.
+  -->
+  <Window.InputBindings>
+    <KeyBinding Key="K" Modifiers="Control" Command="{Binding OpenPaletteCommand}" />
+    <KeyBinding Key="P" Modifiers="Control+Shift" Command="{Binding OpenPaletteCommand}" CommandParameter="&gt;" />
+    <KeyBinding Key="P" Modifiers="Control" Command="{Binding GoToFileCommand}" />
+    <KeyBinding Key="O" Modifiers="Control" Command="{Binding AddLocalProjectCommand}" />
+    <KeyBinding Key="O" Modifiers="Control+Shift" Command="{Binding CloneRepositoryCommand}" />
+    <KeyBinding Key="OemComma" Modifiers="Control" Command="{Binding OpenSettingsCommand}" />
+    <KeyBinding Key="Left" Modifiers="Alt" Command="{Binding GoBackCommand}" />
+    <KeyBinding Key="BrowserBack" Command="{Binding GoBackCommand}" />
+    <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    <KeyBinding Key="Oem3" Modifiers="Control" Command="{Binding OpenTerminalCommand}" />
+    <KeyBinding Key="D1" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="0" />
+    <KeyBinding Key="D2" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="1" />
+    <KeyBinding Key="D3" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="2" />
+    <KeyBinding Key="D4" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="3" />
+    <KeyBinding Key="D5" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="4" />
+    <KeyBinding Key="D6" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="5" />
+    <KeyBinding Key="D7" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="6" />
+    <KeyBinding Key="D8" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="7" />
+    <KeyBinding Key="D9" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="8" />
+    <KeyBinding Key="D0" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="9" />
+    <KeyBinding Key="NumPad1" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="0" />
+    <KeyBinding Key="NumPad2" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="1" />
+    <KeyBinding Key="NumPad3" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="2" />
+    <KeyBinding Key="NumPad4" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="3" />
+    <KeyBinding Key="NumPad5" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="4" />
+    <KeyBinding Key="NumPad6" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="5" />
+    <KeyBinding Key="NumPad7" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="6" />
+    <KeyBinding Key="NumPad8" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="7" />
+    <KeyBinding Key="NumPad9" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="8" />
+    <KeyBinding Key="NumPad0" Modifiers="Control" Command="{Binding SelectTabCommand}" CommandParameter="9" />
+  </Window.InputBindings>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- The shell view (title bar, sidebar, pages, status bar) comes from the shell view model's DataTemplate. -->
+    <ContentPresenter x:Name="ShellHost" Grid.RowSpan="2" Content="{Binding}" />
+
+    <!-- Caption bar used only until a shell view model is set, so the window can always be moved and closed. -->
+    <ui:TitleBar x:Name="FallbackTitleBar" Title="ForgeDesk">
+      <ui:TitleBar.Icon>
+        <ui:ImageIcon Source="{StaticResource ForgeLogoMark}" />
+      </ui:TitleBar.Icon>
+    </ui:TitleBar>
+
+    <!-- Notifications float above the page, clear of the 26 px status bar. -->
+    <ui:SnackbarPresenter x:Name="SnackbarHost" Grid.RowSpan="2" MaxWidth="640" Margin="24,0,24,34"
+                          VerticalAlignment="Bottom" />
+  </Grid>
+</ui:FluentWindow>

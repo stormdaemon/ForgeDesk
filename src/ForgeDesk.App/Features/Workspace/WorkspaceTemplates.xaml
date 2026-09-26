@@ -1,0 +1,16 @@
+<!--
+  Workspace feature: the project workspace frame (header, banners, tab strip, section host) for
+  ProjectWorkspaceViewModel. Sections bring their own DataTemplates. Merged by App.xaml.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:workspace="clr-namespace:ForgeDesk.App.Features.Workspace"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.Workspace;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Features/Workspace/WorkspaceStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:ProjectWorkspaceViewModel}">
+    <workspace:WorkspaceView />
+  </DataTemplate>
+</ResourceDictionary>
