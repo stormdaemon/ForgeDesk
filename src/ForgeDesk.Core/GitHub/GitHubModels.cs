@@ -27,7 +27,20 @@ public sealed record CiSummary
 
 public sealed record GitHubUser(string Login, string? Name, string AvatarUrl, string HtmlUrl);
 
-public sealed record GitHubAccount(GitHubUser User, IReadOnlyList<string> Scopes, GitHubAuthMethod Method);
+public sealed record GitHubAccount(GitHubUser User, IReadOnlyList<string> Scopes, GitHubAuthMethod Method)
+{
+    /// <summary>
+    /// False when the session was restored without reaching GitHub (offline at startup): the
+    /// account comes from the cached login and the token has not been re-validated yet.
+    /// </summary>
+    public bool IsVerified { get; init; } = true;
+
+    /// <summary>
+    /// A user-facing note when the token lacks scopes ForgeDesk relies on (classic tokens
+    /// without "repo" or "workflow"), or null when nothing is missing.
+    /// </summary>
+    public string? Warning { get; init; }
+}
 
 public enum GitHubAuthMethod
 {
@@ -57,6 +70,7 @@ public sealed record GitHubRepository
     public bool CanPush { get; init; }
 }
 
+/// <param name="Color">Label color as "#rrggbb".</param>
 public sealed record GitHubLabel(string Name, string Color);
 
 public enum IssueStateFilter
@@ -131,6 +145,8 @@ public sealed record WorkflowRunInfo
     public required string Event { get; init; }
     public string? Branch { get; init; }
     public string? HeadSha { get; init; }
+
+    /// <summary>Subject line of the head commit (or the run title when GitHub omits the commit).</summary>
     public string? CommitMessage { get; init; }
     public string? Actor { get; init; }
     public CiState State { get; init; }
