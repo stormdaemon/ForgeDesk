@@ -29,7 +29,7 @@ public partial class ShellView : UserControl
     /// </summary>
     private void FitSearchBox()
     {
-        const double reservedPerSide = 360;
+        const double reservedPerSide = 380;
         SearchBox.Width = Math.Clamp(ActualWidth - (2 * reservedPerSide), 200, 420);
     }
 
