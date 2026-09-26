@@ -52,7 +52,11 @@ public sealed class GitServiceStagingTests : IDisposable
         var repo = _sandbox.CreateRepository();
         repo.WriteFile("a[1].txt", "x\n");
         repo.WriteFile("a1.txt", "y\n");
-        repo.WriteFile("star*.txt", "z\n");
+        if (!OperatingSystem.IsWindows())
+        {
+            // '*' is not a valid file name character on Windows.
+            repo.WriteFile("star*.txt", "z\n");
+        }
 
         await Git.StageAsync(repo.Path, ["a[1].txt"], Ct);
 
