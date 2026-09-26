@@ -20,6 +20,17 @@ public partial class ShellView : UserControl
         InitializeComponent();
         PalettePopup.CustomPopupPlacementCallback = PlacePalette;
         Loaded += OnLoaded;
+        SizeChanged += (_, _) => FitSearchBox();
+    }
+
+    /// <summary>
+    /// The search field is centered on the whole title bar; keep it clear of the breadcrumb on the
+    /// left and the account button + caption buttons on the right when the window is narrow.
+    /// </summary>
+    private void FitSearchBox()
+    {
+        const double reservedPerSide = 360;
+        SearchBox.Width = Math.Clamp(ActualWidth - (2 * reservedPerSide), 200, 420);
     }
 
     private ShellViewModel? ViewModel => DataContext as ShellViewModel;

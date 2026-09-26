@@ -74,6 +74,7 @@ jobs:
         env:
           FORGEDESK_APP_PATH: ${{ github.workspace }}\artifacts\publish\win-x64\ForgeDesk.exe
           FORGEDESK_SCREENSHOTS: ${{ github.workspace }}\artifacts\screenshots
+          FORGEDESK_DUMP_UIA: "1"
         run: dotnet test --project tests/ForgeDesk.UITests -c Release
       - name: Upload screenshots
         if: always()

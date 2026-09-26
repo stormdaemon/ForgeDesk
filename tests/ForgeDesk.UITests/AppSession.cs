@@ -65,7 +65,50 @@ public sealed class AppSession : IDisposable
         var file = Path.Combine(ScreenshotsDirectory, name + ".png");
         MainWindow.SetForeground();
         Capture.Element(MainWindow).ToFile(file);
+        if (Environment.GetEnvironmentVariable("FORGEDESK_DUMP_UIA") == "1")
+        {
+            DumpTree(name);
+        }
+
         return file;
+    }
+
+    /// <summary>Writes the UI Automation tree (type, name, id, bounds) next to the screenshot for diagnosis.</summary>
+    public void DumpTree(string name)
+    {
+        Directory.CreateDirectory(ScreenshotsDirectory);
+        var builder = new System.Text.StringBuilder();
+        var count = 0;
+        void Walk(AutomationElement element, int depth)
+        {
+            if (count++ > 6000 || depth > 40)
+            {
+                return;
+            }
+
+            try
+            {
+                var bounds = element.BoundingRectangle;
+                builder.Append(' ', depth * 2)
+                    .Append(element.ControlType).Append(" \"").Append(element.Properties.Name.ValueOrDefault).Append('"')
+                    .Append(element.Properties.AutomationId.ValueOrDefault is { Length: > 0 } id ? $" #{id}" : string.Empty)
+                    .Append($" [{bounds.X},{bounds.Y} {bounds.Width}x{bounds.Height}]")
+                    .Append(element.Properties.IsOffscreen.ValueOrDefault ? " offscreen" : string.Empty)
+                    .Append(element.Properties.IsEnabled.ValueOrDefault ? string.Empty : " disabled")
+                    .AppendLine();
+                foreach (var child in element.FindAllChildren())
+                {
+                    Walk(child, depth + 1);
+                }
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or TimeoutException or InvalidOperationException)
+            {
+                builder.Append(' ', depth * 2).AppendLine("<unavailable>");
+            }
+        }
+
+        Walk(MainWindow, 0);
+        File.WriteAllText(Path.Combine(ScreenshotsDirectory, name + ".uia.txt"), builder.ToString());
     }
 
     public void Press(params VirtualKeyShort[] keys)
