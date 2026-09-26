@@ -165,6 +165,7 @@
     <Setter Property="Visibility" Value="{Binding IsAvailable, Converter={StaticResource BoolToVisibility}}" />
     <Setter Property="ToolTip" Value="{Binding ToolTip}" />
     <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+    <Setter Property="AutomationProperties.AutomationId" Value="{Binding Section, StringFormat=Workspace.Tab.{0}}" />
   </Style>
 
   <!-- Badge of a tab: neutral counter, red for conflicts, ember while commands run. -->

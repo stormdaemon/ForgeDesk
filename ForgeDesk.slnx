@@ -7,5 +7,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/ForgeDesk.Core.Tests/ForgeDesk.Core.Tests.csproj" />
     <Project Path="tests/ForgeDesk.Presentation.Tests/ForgeDesk.Presentation.Tests.csproj" />
+    <Project Path="tests/ForgeDesk.UITests/ForgeDesk.UITests.csproj" />
   </Folder>
 </Solution>

@@ -50,7 +50,7 @@
       </ui:TitleBar.Header>
 
       <ui:TitleBar.CenterContent>
-        <Button x:Name="SearchBox" Width="400" HorizontalAlignment="Center" VerticalAlignment="Center"
+        <Button x:Name="SearchBox" AutomationProperties.AutomationId="Shell.SearchBox" Width="400" HorizontalAlignment="Center" VerticalAlignment="Center"
                 AutomationProperties.Name="Search or run a command"
                 Command="{Binding OpenPaletteCommand}" PreviewTextInput="OnSearchBoxTextInput"
                 Style="{StaticResource ShellSearchBoxStyle}" ToolTip="Search projects, files and actions (Ctrl+K)">
