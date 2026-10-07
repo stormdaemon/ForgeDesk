@@ -1,0 +1,120 @@
+<!--
+  Styles of the activity timeline: filter chips, the failures toggle and timeline rows.
+  Merged by ActivityTemplates.xaml. Brushes are DynamicResource so light and dark themes both work.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ===== Filter chips ============================================================== -->
+
+  <Style x:Key="ActivityChipListStyle" TargetType="ListBox">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="SelectionMode" Value="Single" />
+    <Setter Property="IsTextSearchEnabled" Value="False" />
+    <Setter Property="KeyboardNavigation.DirectionalNavigation" Value="Cycle" />
+    <Setter Property="ItemsPanel">
+      <Setter.Value>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBox">
+          <ItemsPresenter />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ActivityChipItemStyle" TargetType="ListBoxItem">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{DynamicResource OverviewFocusVisualStyle}" />
+    <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+    <Setter Property="AutomationProperties.AutomationId" Value="{Binding Title, StringFormat=Activity.Filter.{0}}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                  BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="14">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ForgeAccentSubtleBrush}" />
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ForgeAccentBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource ForgeAccentTextBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- "Failures only": a chip that toggles. -->
+  <Style x:Key="ActivityToggleChipStyle" TargetType="ToggleButton">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{DynamicResource OverviewFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="{DynamicResource ControlFillColorDefaultBrush}"
+                  BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="14">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ForgeDangerSubtleBrush}" />
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ForgeDangerBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Timeline rows =============================================================== -->
+
+  <!--
+    Rows of the timeline: entries are selectable (accent pill, hover fill); day headers are plain,
+    non-focusable separators.
+  -->
+  <Style x:Key="ActivityRowItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ForgeDenseListBoxItemStyle}">
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="AutomationProperties.AutomationId" Value="Activity.Entry" />
+    <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding IsHeader}" Value="True">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="AutomationProperties.AutomationId" Value="Activity.DayHeader" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+</ResourceDictionary>

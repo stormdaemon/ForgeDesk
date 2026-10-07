@@ -1,0 +1,166 @@
+<!--
+  Styles shared by the Overview, Insights and Activity views: card chrome, clickable rows, link
+  buttons, stat tiles and bars. Merged by OverviewTemplates.xaml, InsightsTemplates.xaml and
+  ActivityTemplates.xaml. Brushes are DynamicResource so light and dark themes both work.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:shell="clr-namespace:ForgeDesk.App.Shell"
+                    xmlns:overview="clr-namespace:ForgeDesk.App.Features.Overview">
+
+  <shell:StatusToneToKindConverter x:Key="OverviewToneToKind" />
+  <shell:StatusToneToVisibilityConverter x:Key="OverviewToneToVisibility" />
+  <shell:StatusToneToBrushConverter x:Key="OverviewToneToBrush" />
+  <overview:StarLengthConverter x:Key="OverviewStar" />
+  <overview:ArcGeometryConverter x:Key="OverviewArc" />
+  <overview:InverseBooleanConverter x:Key="OverviewInverseBoolean" />
+
+  <!-- Rounded keyboard focus ring for custom buttons and rows. -->
+  <Style x:Key="OverviewFocusVisualStyle">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-1" RadiusX="5" RadiusY="5" SnapsToDevicePixels="True" StrokeThickness="2"
+                     Stroke="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Cards ===================================================================== -->
+
+  <!-- A card of the glance grid: card surface, 16 px padding, 12 px gap below. -->
+  <Style x:Key="OverviewCardStyle" TargetType="Border" BasedOn="{StaticResource ForgeSectionCardStyle}">
+    <Setter Property="Margin" Value="0,0,0,12" />
+  </Style>
+
+  <!-- Card header icon (18 px, secondary). -->
+  <Style x:Key="OverviewCardIconStyle" TargetType="ui:SymbolIcon">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <!-- Card title next to its icon. -->
+  <Style x:Key="OverviewCardTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeSubtitle}">
+    <Setter Property="Margin" Value="10,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Small metadata icon in rows. -->
+  <Style x:Key="OverviewMetaIconStyle" TargetType="ui:SymbolIcon">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <!-- ===== Buttons ==================================================================== -->
+
+  <!-- A whole row that acts as a button: transparent, subtle fill on hover, 4 px corners. -->
+  <Style x:Key="OverviewRowButtonStyle" TargetType="Button">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource OverviewFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="4" SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Cursor" Value="Arrow" />
+              <Setter TargetName="Surface" Property="Background" Value="Transparent" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Text-only accent action ("View all", "All commands"). -->
+  <Style x:Key="OverviewLinkButtonStyle" TargetType="Button">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource ForgeAccentTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource OverviewFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="4">
+            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Stats and bars ============================================================== -->
+
+  <!-- A compact metric tile (value over label). -->
+  <Style x:Key="OverviewStatTileStyle" TargetType="Border">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Margin" Value="0,0,8,8" />
+    <Setter Property="MinWidth" Value="88" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+  </Style>
+
+  <Style x:Key="OverviewStatValueStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeTextBase}">
+    <Setter Property="FontFamily" Value="{DynamicResource ForgeDisplayFont}" />
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Track of a horizontal ratio bar. -->
+  <Style x:Key="OverviewBarTrackStyle" TargetType="Border">
+    <Setter Property="Height" Value="6" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+  </Style>
+
+  <!-- Card-level failure: icon, message and Retry, inside the card. -->
+  <Style x:Key="OverviewInlineErrorStyle" TargetType="Border">
+    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{DynamicResource ForgeDangerSubtleBrush}" />
+  </Style>
+
+  <!-- Subtle hint panel (no data yet, not linked…). -->
+  <Style x:Key="OverviewHintStyle" TargetType="Border">
+    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+  </Style>
+</ResourceDictionary>

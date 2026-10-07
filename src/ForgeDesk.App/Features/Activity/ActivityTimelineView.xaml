@@ -1,0 +1,189 @@
+<UserControl x:Class="ForgeDesk.App.Features.Activity.ActivityTimelineView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Activity;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ActivityTimelineViewModel}"
+             d:DesignWidth="1100" d:DesignHeight="700"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Activity.Timeline"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- Context menu of an entry. DataContext: the timeline (Tag of the row); parameter: the entry. -->
+    <ContextMenu x:Key="EntryContextMenu" x:Shared="False" DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+      <MenuItem Command="{Binding OpenEntryCommand}" FontWeight="SemiBold" InputGestureText="Enter"
+                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                Header="{Binding PlacementTarget.DataContext.ActionText, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=Open}"
+                Visibility="{Binding PlacementTarget.DataContext.CanFollow, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Open16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding CopyEntryCommand}" Header="Copy details" InputGestureText="Ctrl+C"
+                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Copy16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator />
+      <MenuItem Command="{Binding ClearHistoryCommand}" Foreground="{DynamicResource ForgeDangerBrush}" Header="Clear history…">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Foreground="{DynamicResource ForgeDangerBrush}" Symbol="Delete16" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </ContextMenu>
+
+    <!-- Day header. -->
+    <DataTemplate DataType="{x:Type vm:ActivityDayHeaderViewModel}">
+      <Grid Margin="0,14,0,4">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Label}" />
+        <Border Grid.Column="1" Margin="8,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}">
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Count}" />
+        </Border>
+        <Rectangle Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeDividerStyle}" />
+      </Grid>
+    </DataTemplate>
+
+    <!-- Entry. -->
+    <DataTemplate DataType="{x:Type vm:ActivityItemViewModel}">
+      <Grid MinHeight="44" Background="Transparent" ContextMenu="{StaticResource EntryContextMenu}"
+            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="56" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding TimeText}" ToolTip="{Binding FullTimeText}" />
+
+        <Border Grid.Column="1" Width="28" Height="28" VerticalAlignment="Center" CornerRadius="14"
+                Background="{Binding Tone, Converter={StaticResource OverviewToneToBrush}, ConverterParameter=Subtle}">
+          <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"
+                         Foreground="{Binding Tone, Converter={StaticResource OverviewToneToBrush}}"
+                         Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}, ConverterParameter=History20}" />
+        </Border>
+
+        <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Orientation="Horizontal"
+                    Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
+          <controls:ProjectAvatar Color="{Binding ProjectColor}" ProjectName="{Binding ProjectName}" Size="20" />
+          <TextBlock Width="132" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding ProjectName}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="3" Margin="12,4,12,4" VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Title}" />
+          <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Detail}"
+                     Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="4" VerticalAlignment="Center" Orientation="Horizontal">
+          <controls:Pill Margin="0,0,8,0" Kind="Danger" Text="Failed" Visibility="{Binding IsFailure, Converter={StaticResource BoolToVisibility}}" />
+          <controls:Pill Margin="0,0,8,0" Kind="Warning" Text="Warning" Visibility="{Binding IsWarning, Converter={StaticResource BoolToVisibility}}" />
+          <Button Command="{Binding DataContext.OpenEntryCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" Style="{StaticResource OverviewLinkButtonStyle}"
+                  AutomationProperties.AutomationId="Activity.FollowButton" AutomationProperties.Name="{Binding ActionText}"
+                  Visibility="{Binding CanFollow, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock VerticalAlignment="Center" FontSize="12" Text="{Binding ActionText}" />
+              <ui:SymbolIcon Margin="4,0,0,0" FontSize="12" Symbol="ChevronRight12" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Toolbar: chips, failures, search, clear ===== -->
+    <Grid Margin="24,0,24,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <WrapPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <ListBox Margin="0,0,6,4" VerticalAlignment="Center" AutomationProperties.AutomationId="Activity.FilterChips" AutomationProperties.Name="Filter by kind"
+                 ItemContainerStyle="{StaticResource ActivityChipItemStyle}" ItemsSource="{Binding Filters}"
+                 SelectedItem="{Binding SelectedFilter, Mode=TwoWay}" Style="{StaticResource ActivityChipListStyle}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:ActivityFilterViewModel}">
+              <TextBlock VerticalAlignment="Center" FontSize="12" Text="{Binding Title}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <Rectangle Width="1" Height="20" Margin="4,0,10,4" VerticalAlignment="Center" Fill="{DynamicResource DividerStrokeColorDefaultBrush}" />
+        <ToggleButton Margin="0,0,0,4" AutomationProperties.AutomationId="Activity.FailuresOnlyToggle" AutomationProperties.Name="Show failures only"
+                      IsChecked="{Binding FailuresOnly, Mode=TwoWay}" Style="{StaticResource ActivityToggleChipStyle}" ToolTip="Show only what failed">
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource ForgeDangerBrush}" Symbol="ErrorCircle16" />
+            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12" Text="Failures only" />
+          </StackPanel>
+        </ToggleButton>
+      </WrapPanel>
+
+      <ui:TextBox x:Name="SearchBox" Grid.Column="1" Width="240" Height="32" Margin="12,0,0,4" VerticalAlignment="Center"
+                  AutomationProperties.AutomationId="Activity.SearchBox" AutomationProperties.Name="Search activity" ClearButtonEnabled="True"
+                  Icon="{ui:SymbolIcon Search16}" PlaceholderText="Search activity" Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="Search titles and details (Ctrl+F)">
+        <ui:TextBox.InputBindings>
+          <KeyBinding Key="Escape" Command="{Binding ClearFiltersCommand}" />
+        </ui:TextBox.InputBindings>
+      </ui:TextBox>
+
+      <ui:Button Grid.Column="2" Width="32" Height="32" Margin="8,0,0,4" Padding="0" VerticalAlignment="Center" Appearance="Transparent"
+                 AutomationProperties.AutomationId="Activity.ClearHistoryButton" AutomationProperties.Name="Clear history"
+                 Command="{Binding ClearHistoryCommand}" Icon="{ui:SymbolIcon Delete16}" ToolTip="Clear history…" />
+    </Grid>
+
+    <!-- ===== Content ===== -->
+    <Grid Grid.Row="1">
+      <controls:SkeletonList Margin="24,8,24,0" VerticalAlignment="Top" AutomationProperties.AutomationId="Activity.Loading" RowCount="10" RowHeight="44"
+                             ShowIcons="True" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+
+      <controls:ErrorPanel Margin="24,8,24,0" VerticalAlignment="Top" AutomationProperties.AutomationId="Activity.Error" Error="{Binding Error}"
+                           RetryCommand="{Binding RefreshCommand}" />
+
+      <controls:EmptyState AutomationProperties.AutomationId="Activity.Empty" Description="{Binding EmptyDescription}" Icon="History24"
+                           Title="Nothing happened yet" Visibility="{Binding ShowEmpty, Converter={StaticResource BoolToVisibility}}"
+                           ActionText="Refresh" ActionCommand="{Binding RefreshCommand}" />
+
+      <controls:EmptyState AutomationProperties.AutomationId="Activity.NoMatches" ActionCommand="{Binding ClearFiltersCommand}" ActionText="Clear filters"
+                           Description="No entry matches these filters. Try another kind, include successes, or search for a different word."
+                           Icon="Search24" Title="No matching activity" Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVisibility}}" />
+
+      <ListBox x:Name="EntryList" MouseDoubleClick="OnEntryDoubleClick" Margin="12,0,12,0" Padding="0,0,0,24" AutomationProperties.AutomationId="Activity.EntryList"
+               AutomationProperties.Name="Activity" ItemContainerStyle="{StaticResource ActivityRowItemStyle}" ItemsSource="{Binding Rows}"
+               SelectedItem="{Binding SelectedItem, Mode=TwoWay}" SelectionMode="Single" Style="{StaticResource ForgeDenseListBoxStyle}"
+               Visibility="{Binding HasEntries, Converter={StaticResource BoolToVisibility}}">
+        <ListBox.InputBindings>
+          <KeyBinding Key="Enter" Command="{Binding OpenEntryCommand}" CommandParameter="{Binding SelectedItem}" />
+          <KeyBinding Key="C" Command="{Binding CopyEntryCommand}" CommandParameter="{Binding SelectedItem}" Modifiers="Control" />
+        </ListBox.InputBindings>
+      </ListBox>
+
+      <!-- Loading the next page -->
+      <Border Margin="0,0,0,16" Padding="12,6" HorizontalAlignment="Center" VerticalAlignment="Bottom" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+              BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" IsHitTestVisible="False"
+              Visibility="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibility}}">
+        <StackPanel Orientation="Horizontal">
+          <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Loading older activity…" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
