@@ -1,0 +1,76 @@
+<UserControl x:Class="ForgeDesk.App.Features.Git.GitSectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Git;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:GitSectionViewModel}"
+             d:DesignHeight="600" d:DesignWidth="1000"
+             AutomationProperties.AutomationId="Git.Section"
+             Focusable="False">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Sub-navigation ===== -->
+    <Grid Grid.Row="0" Visibility="{Binding IsReady, Converter={StaticResource BoolToVisibility}}">
+      <ListBox Margin="24,12,24,12" HorizontalAlignment="Left" AutomationProperties.AutomationId="Git.SubNavigation"
+               AutomationProperties.Name="Git views" ItemsSource="{Binding Tabs}" SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
+               Style="{StaticResource GitSegmentedListStyle}">
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:GitSubViewTab}">
+            <StackPanel Orientation="Horizontal">
+              <ui:SymbolIcon Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14"
+                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                             Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+              <TextBlock VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                         Text="{Binding Title}" />
+              <Border Style="{StaticResource GitSegmentBadgeStyle}" Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding BadgeText}" />
+              </Border>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <Rectangle VerticalAlignment="Bottom" Style="{StaticResource ForgeDividerStyle}" />
+    </Grid>
+
+    <!-- ===== Views: one live view per opened entry, only the current one visible ===== -->
+    <ItemsControl Grid.Row="1" Focusable="False" ItemsSource="{Binding OpenedTabs}"
+                  Visibility="{Binding IsReady, Converter={StaticResource BoolToVisibility}}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Grid />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate DataType="{x:Type vm:GitSubViewTab}">
+          <ContentPresenter Content="{Binding ViewModel}" Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- ===== States of a folder that is not a usable repository ===== -->
+    <controls:LoadingState Grid.Row="1" IsActive="{Binding IsChecking}" Message="Reading the repository…"
+                           Visibility="{Binding IsChecking, Converter={StaticResource BoolToVisibility}}" />
+
+    <controls:EmptyState Grid.Row="1" AutomationProperties.AutomationId="Git.NotRepositoryState" Icon="BranchFork24"
+                         Title="This folder isn't a Git repository" Description="{Binding NotRepositoryDescription}"
+                         ActionText="Initialize repository" ActionCommand="{Binding InitializeRepositoryCommand}"
+                         Visibility="{Binding IsNotRepository, Converter={StaticResource BoolToVisibility}}" />
+
+    <controls:EmptyState Grid.Row="1" AutomationProperties.AutomationId="Git.GitMissingState" Icon="PlugDisconnected24"
+                         Title="Git isn't available" Description="{Binding GitMissingDescription}"
+                         ActionText="Install Git for Windows" ActionCommand="{Binding InstallGitCommand}"
+                         SecondaryActionText="Check again" SecondaryActionCommand="{Binding CheckAgainCommand}"
+                         Visibility="{Binding IsGitMissing, Converter={StaticResource BoolToVisibility}}" />
+
+    <controls:ErrorPanel Grid.Row="1" Margin="24" AutomationProperties.AutomationId="Git.RepositoryError" Error="{Binding RepositoryError}"
+                         RetryCommand="{Binding CheckAgainCommand}" RetryText="Check again" />
+  </Grid>
+</UserControl>
