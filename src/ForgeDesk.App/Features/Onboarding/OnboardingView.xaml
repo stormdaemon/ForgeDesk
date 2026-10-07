@@ -1,0 +1,257 @@
+<UserControl x:Class="ForgeDesk.App.Features.Onboarding.OnboardingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Onboarding;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:OnboardingViewModel}"
+             d:DesignWidth="1100" d:DesignHeight="760"
+             AutomationProperties.AutomationId="Onboarding.Root"
+             Focusable="False">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Top: progress and skip ===== -->
+    <Grid Grid.Row="0" Margin="32,20,32,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+        <ItemsControl HorizontalAlignment="Center" AutomationProperties.AutomationId="Onboarding.StepDots" AutomationProperties.Name="Setup progress"
+                      Focusable="False" ItemsSource="{Binding Steps}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:OnboardingStepItem}">
+              <Border Style="{StaticResource OnboardingDotStyle}" ToolTip="{Binding Title}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding StepCaption}" />
+      </StackPanel>
+      <Button Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top" AutomationProperties.AutomationId="Onboarding.SkipButton"
+              Command="{Binding SkipSetupCommand}" Content="Skip setup" Style="{StaticResource OnboardingLinkStyle}"
+              ToolTip="Go straight to ForgeDesk. Everything can be set up later in Settings."
+              Visibility="{Binding ShowSkipSetup, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+
+    <!-- ===== Steps ===== -->
+    <ScrollViewer Grid.Row="1" Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+        <Grid MaxWidth="760" Margin="32,24" HorizontalAlignment="Center" VerticalAlignment="Center">
+
+          <!-- 1. Welcome -->
+          <StackPanel AutomationProperties.AutomationId="Onboarding.Welcome" Visibility="{Binding IsWelcomeStep, Converter={StaticResource BoolToVisibility}}">
+            <Image Width="112" Height="112" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" Source="{StaticResource ForgeLogoImage}" />
+            <TextBlock Margin="0,20,0,0" Style="{StaticResource OnboardingHeadingStyle}" Text="Welcome to ForgeDesk" />
+            <TextBlock Style="{StaticResource OnboardingLeadStyle}" Text="ForgeDesk is your cockpit for local and GitHub projects." />
+            <ItemsControl Margin="0,32,0,0" HorizontalAlignment="Center" Focusable="False" ItemsSource="{Binding Highlights}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:OnboardingHighlight}">
+                  <Border Margin="6,0,6,12" Style="{StaticResource OnboardingTileStyle}">
+                    <StackPanel>
+                      <Border Style="{StaticResource OnboardingIconTileStyle}">
+                        <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                       Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+                      </Border>
+                      <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Title}" TextWrapping="Wrap" />
+                      <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Description}" TextTrimming="None"
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <!-- 2. Environment -->
+          <StackPanel Width="620" AutomationProperties.AutomationId="Onboarding.Environment"
+                      Visibility="{Binding IsEnvironmentStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OnboardingHeadingStyle}" Text="Check your tools" />
+            <TextBlock Style="{StaticResource OnboardingLeadStyle}" Text="ForgeDesk works with the Git installed on this computer. The GitHub CLI is optional." />
+
+            <Border Margin="0,28,0,8" AutomationProperties.AutomationId="Onboarding.GitCheck" Style="{StaticResource OnboardingCheckCardStyle}">
+              <StackPanel>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Border Style="{StaticResource OnboardingIconTileStyle}">
+                    <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                   Symbol="BranchFork20" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="Git" />
+                    <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                      <controls:StatusDot Margin="0,0,8,0" VerticalAlignment="Center" Status="{Binding GitTone, Converter={StaticResource OnboardingStatusToneToKind}}" />
+                      <TextBlock AutomationProperties.AutomationId="Onboarding.GitStatus" Style="{StaticResource ForgeBodySecondary}" Text="{Binding GitStatusText}"
+                                 TextTrimming="None" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Git.ExecutablePath}"
+                               Visibility="{Binding IsGitFound, Converter={StaticResource BoolToVisibility}}" />
+                  </StackPanel>
+                  <ui:ProgressRing Grid.Column="2" Width="18" Height="18" IsIndeterminate="True"
+                                   Visibility="{Binding IsCheckingEnvironment, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+                <Border Margin="50,14,0,0" Padding="12,10" Background="{DynamicResource ForgeWarningSubtleBrush}" CornerRadius="6"
+                        Visibility="{Binding ShowGitGuidance, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel>
+                    <TextBlock Style="{StaticResource ForgeBody}" TextTrimming="None" TextWrapping="Wrap"
+                               Text="Install Git for Windows with its default options, then check again. You can continue without it, but status, commits and sync will be unavailable." />
+                    <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                      <ui:Button Appearance="Primary" AutomationProperties.AutomationId="Onboarding.DownloadGitButton" Command="{Binding DownloadGitCommand}"
+                                 Content="Download Git for Windows" Icon="{ui:SymbolIcon ArrowDownload16}" />
+                      <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Onboarding.CheckAgainButton" Command="{Binding CheckEnvironmentCommand}"
+                                 Content="Check again" Icon="{ui:SymbolIcon ArrowClockwise16}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+
+            <Border AutomationProperties.AutomationId="Onboarding.CliCheck" Style="{StaticResource OnboardingCheckCardStyle}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource OnboardingIconTileStyle}">
+                  <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                 Symbol="WindowConsole20" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="GitHub CLI" />
+                    <controls:Pill Margin="8,0,0,0" Text="Optional" />
+                  </StackPanel>
+                  <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                    <controls:StatusDot Margin="0,0,8,0" VerticalAlignment="Center" Status="Success"
+                                        Visibility="{Binding IsGitHubCliAvailable, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="{Binding GitHubCliStatusText}" TextTrimming="None" TextWrapping="Wrap" />
+                  </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="2" VerticalAlignment="Center" AutomationProperties.AutomationId="Onboarding.GetCliLink" Command="{Binding InstallGitHubCliCommand}"
+                        Content="Get GitHub CLI" Style="{StaticResource OnboardingLinkStyle}"
+                        Visibility="{Binding IsGitHubCliAvailable, Converter={StaticResource InverseBoolToVisibility}}" />
+              </Grid>
+            </Border>
+
+            <ui:Button Margin="0,4,0,0" HorizontalAlignment="Center" AutomationProperties.AutomationId="Onboarding.RecheckButton" Appearance="Transparent"
+                       Command="{Binding CheckEnvironmentCommand}" Content="Check again" Icon="{ui:SymbolIcon ArrowClockwise16}"
+                       Visibility="{Binding ShowGitGuidance, Converter={StaticResource InverseBoolToVisibility}}" />
+          </StackPanel>
+
+          <!-- 3. GitHub -->
+          <StackPanel Width="680" AutomationProperties.AutomationId="Onboarding.GitHub" Visibility="{Binding IsGitHubStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OnboardingHeadingStyle}" Text="Connect GitHub" />
+            <TextBlock Style="{StaticResource OnboardingLeadStyle}"
+                       Text="Optional: see issues, pull requests and CI status, and clone your repositories in two clicks. You can connect later in Settings › GitHub." />
+            <ContentControl Margin="0,28,0,0" Content="{Binding SignIn}" Focusable="False" IsTabStop="False" />
+          </StackPanel>
+
+          <!-- 4. First project -->
+          <StackPanel AutomationProperties.AutomationId="Onboarding.FirstProject" Visibility="{Binding IsFirstProjectStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OnboardingHeadingStyle}" Text="Add your first project" />
+            <TextBlock Style="{StaticResource OnboardingLeadStyle}" Text="Pick a folder you already work in, or clone a repository. You can add more at any time." />
+            <StackPanel Margin="0,32,0,0" HorizontalAlignment="Center" Orientation="Horizontal">
+              <Button AutomationProperties.AutomationId="Onboarding.AddFolderButton" Command="{Binding AddLocalFolderCommand}" Style="{StaticResource OnboardingChoiceStyle}">
+                <StackPanel>
+                  <Border Style="{StaticResource OnboardingIconTileStyle}">
+                    <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                   Symbol="FolderAdd20" />
+                  </Border>
+                  <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeSubtitle}" Text="Add a local folder" />
+                  <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeBodySecondary}" TextTrimming="None" TextWrapping="Wrap"
+                             Text="A project that is already on this computer." />
+                </StackPanel>
+              </Button>
+              <Button Margin="16,0,0,0" AutomationProperties.AutomationId="Onboarding.CloneButton" Command="{Binding CloneCommand}"
+                      Style="{StaticResource OnboardingChoiceStyle}">
+                <StackPanel>
+                  <Border Style="{StaticResource OnboardingIconTileStyle}">
+                    <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                   Symbol="CloudArrowDown20" />
+                  </Border>
+                  <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeSubtitle}" Text="Clone a repository" />
+                  <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeBodySecondary}" TextTrimming="None" TextWrapping="Wrap"
+                             Text="From your GitHub account or any git address." />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <StackPanel Margin="0,20,0,0" HorizontalAlignment="Center" Orientation="Horizontal"
+                        Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}">
+              <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" />
+              <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="Adding the project…" />
+            </StackPanel>
+            <ui:InfoBar Margin="0,20,0,0" AutomationProperties.AutomationId="Onboarding.Error" IsClosable="False" IsOpen="{Binding HasError}"
+                        Message="{Binding Error.Message}" Severity="Error" Title="{Binding Error.Title}" />
+          </StackPanel>
+
+          <!-- 5. Ready -->
+          <StackPanel Width="560" AutomationProperties.AutomationId="Onboarding.Ready" Visibility="{Binding IsReadyStep, Converter={StaticResource BoolToVisibility}}">
+            <Border Width="56" Height="56" HorizontalAlignment="Center" Background="{DynamicResource ForgeSuccessSubtleBrush}" CornerRadius="28">
+              <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="28" Foreground="{DynamicResource ForgeSuccessBrush}"
+                             Symbol="Checkmark24" />
+            </Border>
+            <TextBlock Margin="0,16,0,0" Style="{StaticResource OnboardingHeadingStyle}" Text="You're all set" />
+            <TextBlock Style="{StaticResource OnboardingLeadStyle}" Text="A few shortcuts to feel at home:" />
+            <Border Margin="0,16,0,0" Padding="8,4" Background="{DynamicResource ForgeSuccessSubtleBrush}" CornerRadius="6"
+                    HorizontalAlignment="Center" Visibility="{Binding HasAddedProject, Converter={StaticResource BoolToVisibility}}">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource ForgeSuccessBrush}" Symbol="CheckmarkCircle16" />
+                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" AutomationProperties.AutomationId="Onboarding.AddedProject" Style="{StaticResource ForgeBody}"
+                           Text="{Binding AddedProjectText}" />
+              </StackPanel>
+            </Border>
+            <Border Margin="0,20,0,0" Padding="8" Style="{StaticResource OnboardingCheckCardStyle}">
+              <ItemsControl AutomationProperties.AutomationId="Onboarding.Tips" Focusable="False" ItemsSource="{Binding Tips}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type vm:OnboardingTip}">
+                    <Grid MinHeight="40" Margin="8,0">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <controls:KeyHint HorizontalAlignment="Left" VerticalAlignment="Center" Keys="{Binding Keys}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Description}" TextWrapping="Wrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </ScrollViewer>
+
+    <!-- ===== Navigation ===== -->
+    <Border Grid.Row="2" Padding="32,16" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+      <Grid MaxWidth="760">
+        <ui:Button HorizontalAlignment="Left" AutomationProperties.AutomationId="Onboarding.BackButton" Command="{Binding BackCommand}" Content="Back"
+                   Icon="{ui:SymbolIcon ArrowLeft16}" Visibility="{Binding CanGoBack, Converter={StaticResource BoolToVisibility}}" />
+        <ui:Button MinWidth="160" HorizontalAlignment="Right" Appearance="Primary" AutomationProperties.AutomationId="Onboarding.NextButton"
+                   Command="{Binding NextCommand}" Content="{Binding NextText}" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

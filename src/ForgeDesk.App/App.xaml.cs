@@ -114,6 +114,7 @@ public partial class App : Application
             var notifications = _services.GetRequiredService<NotificationService>();
             notifications.RegisterToastActivation();
 
+            Services.Updates.StartupMaintenance.Run(_services, paths);
             var database = _services.GetRequiredService<Database>();
             var databaseState = await database.InitializeAsync().ConfigureAwait(true);
             _ = Task.Run(() => BackupDatabaseAsync(database));

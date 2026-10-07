@@ -1,0 +1,53 @@
+<UserControl x:Class="ForgeDesk.App.Features.Settings.CommandsSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Settings;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CommandsSettingsViewModel}"
+             d:DesignWidth="800"
+             Focusable="False">
+  <StackPanel>
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Running commands" />
+    <ui:CardControl Icon="{ui:SymbolIcon Alert24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Notify me when a command finishes" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="A Windows notification appears when ForgeDesk is in the background." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch AutomationProperties.AutomationId="Settings.NotifyRunToggle" AutomationProperties.Name="Notify me when a command finishes"
+                       IsChecked="{Binding NotifyWhenFinished, Mode=TwoWay}" OffContent="Off" OnContent="On" />
+    </ui:CardControl>
+    <ui:CardControl Icon="{ui:SymbolIcon Timer20}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Warn about stalled commands after (minutes)" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="A command that prints nothing for this long is flagged as stalled. Between 1 and 240." />
+          <TextBlock Style="{StaticResource SettingsValidationStyle}" Text="{Binding StalledError}"
+                     Visibility="{Binding HasStalledError, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="140" AutomationProperties.AutomationId="Settings.StalledMinutesBox" AutomationProperties.Name="Stalled warning in minutes"
+                    ClearButtonEnabled="False" LargeChange="5" MaxDecimalPlaces="0" Maximum="240" Minimum="1" SmallChange="1"
+                    Value="{Binding StalledMinutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+    </ui:CardControl>
+
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="History" />
+    <ui:CardControl Icon="{ui:SymbolIcon History24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Runs kept per project" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="Older runs and their logs are deleted automatically. Between 10 and 5,000." />
+          <TextBlock Style="{StaticResource SettingsValidationStyle}" Text="{Binding HistoryError}"
+                     Visibility="{Binding HasHistoryError, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="140" AutomationProperties.AutomationId="Settings.RunHistoryBox" AutomationProperties.Name="Runs kept per project"
+                    ClearButtonEnabled="False" LargeChange="50" MaxDecimalPlaces="0" Maximum="5000" Minimum="10" SmallChange="10"
+                    Value="{Binding HistoryPerProject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+    </ui:CardControl>
+  </StackPanel>
+</UserControl>

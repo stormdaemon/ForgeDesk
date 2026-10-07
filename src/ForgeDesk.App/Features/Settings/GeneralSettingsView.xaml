@@ -1,0 +1,64 @@
+<UserControl x:Class="ForgeDesk.App.Features.Settings.GeneralSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Settings;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:GeneralSettingsViewModel}"
+             d:DesignWidth="800"
+             Focusable="False">
+  <StackPanel>
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Projects" />
+    <ui:CardControl AutomationProperties.AutomationId="Settings.CloneFolderCard" Icon="{ui:SymbolIcon FolderArrowRight24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Default clone folder" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="New clones go here unless you choose another folder." />
+          <TextBox Margin="0,6,0,0" AutomationProperties.AutomationId="Settings.CloneFolderPath" Style="{StaticResource SettingsPathTextStyle}"
+                   Text="{Binding CloneFolderText, Mode=OneWay}" />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <StackPanel Orientation="Horizontal">
+        <ui:Button AutomationProperties.AutomationId="Settings.ResetCloneFolderButton" Command="{Binding ResetCloneFolderCommand}" Content="Use default"
+                   ToolTip="{Binding DefaultCloneFolder}" Visibility="{Binding HasCustomCloneFolder, Converter={StaticResource BoolToVisibility}}" />
+        <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Settings.ChangeCloneFolderButton" Command="{Binding ChangeCloneFolderCommand}"
+                   Content="Change…" Icon="{ui:SymbolIcon FolderOpen16}" />
+      </StackPanel>
+    </ui:CardControl>
+
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Startup and closing" />
+    <ui:CardControl Icon="{ui:SymbolIcon History24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Reopen the last project on startup" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="Otherwise ForgeDesk starts on the dashboard." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch AutomationProperties.AutomationId="Settings.RestoreLastProjectToggle" AutomationProperties.Name="Reopen the last project on startup"
+                       IsChecked="{Binding RestoreLastProject, Mode=TwoWay}" OffContent="Off" OnContent="On" />
+    </ui:CardControl>
+    <ui:CardControl Icon="{ui:SymbolIcon Warning24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Confirm before closing while commands run" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="Closing ForgeDesk stops dev servers, builds and every other running command." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch AutomationProperties.AutomationId="Settings.ConfirmCloseToggle" AutomationProperties.Name="Confirm before closing while commands run"
+                       IsChecked="{Binding ConfirmBeforeClosing, Mode=TwoWay}" OffContent="Off" OnContent="On" />
+    </ui:CardControl>
+
+    <TextBlock Style="{StaticResource SettingsGroupHeaderStyle}" Text="Getting started" />
+    <ui:CardControl Icon="{ui:SymbolIcon Sparkle24}" Style="{StaticResource SettingsCardStyle}">
+      <ui:CardControl.Header>
+        <StackPanel>
+          <TextBlock Style="{StaticResource SettingsTitleStyle}" Text="Welcome tour" />
+          <TextBlock Style="{StaticResource SettingsDescriptionStyle}" Text="Check Git, connect GitHub and add a project again. Your settings are kept." />
+        </StackPanel>
+      </ui:CardControl.Header>
+      <ui:Button AutomationProperties.AutomationId="Settings.RunOnboardingButton" Command="{Binding RunOnboardingCommand}" Content="Run onboarding again" />
+    </ui:CardControl>
+  </StackPanel>
+</UserControl>

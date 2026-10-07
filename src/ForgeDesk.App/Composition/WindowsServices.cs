@@ -36,6 +36,7 @@ public static class WindowsServices
         services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
 
         services.AddSingleton<IThemeSwitcher, ThemeSwitcher>();
+        Services.Updates.UpdateServicesRegistration.AddForgeDeskUpdates(services);
 
         // The main window renders the shell; activations (command line, jump list, toasts) go to it.
         services.AddKeyedSingleton<object>(ShellViewModelKey, (sp, _) =>

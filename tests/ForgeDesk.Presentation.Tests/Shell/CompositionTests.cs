@@ -32,10 +32,11 @@ public sealed class CompositionTests : IDisposable
 
         provider.GetRequiredService<ShellViewModel>().Should().NotBeNull();
         provider.GetRequiredService<INavigationService>().Should().BeSameAs(provider.GetRequiredService<NavigationService>());
-        // Features add their own sources; the shell always brings these three.
-        provider.GetServices<IPaletteSource>().Select(s => s.GetType()).Should()
-            .Contain([typeof(ProjectsPaletteSource), typeof(NavigationPaletteSource), typeof(ShellActionsPaletteSource)]);
-        provider.GetRequiredService<IProjectActions>().CanClone.Should().BeFalse();
+        // Features add their own palette sources and the clone flow on top of the shell's.
+        provider.GetServices<IPaletteSource>().Should().Contain(s => s is ProjectsPaletteSource)
+            .And.Contain(s => s is NavigationPaletteSource)
+            .And.Contain(s => s is ShellActionsPaletteSource);
+        provider.GetRequiredService<IProjectActions>().CanClone.Should().Be(provider.GetServices<ICloneRequestHandler>().Any());
     }
 
     [Fact]
@@ -46,8 +47,11 @@ public sealed class CompositionTests : IDisposable
 
         pages.IsAvailable(PageKind.Dashboard).Should().BeTrue();
         pages.Create(PageKind.Dashboard).Should().BeOfType<DashboardPage>();
-        pages.IsAvailable(PageKind.Settings).Should().BeFalse();
-        pages.Create(PageKind.Settings).Should().BeNull();
+
+        // Every page kind has a feature now; a factory knowing only the dashboard shows the fallback.
+        var onlyDashboard = new PageFactory(provider, [new PageRegistration(PageKind.Dashboard, typeof(DashboardPage))]);
+        onlyDashboard.IsAvailable(PageKind.Settings).Should().BeFalse();
+        onlyDashboard.Create(PageKind.Settings).Should().BeNull();
     }
 
     [Fact]

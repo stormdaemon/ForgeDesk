@@ -1,0 +1,613 @@
+<UserControl x:Class="ForgeDesk.App.Features.Dashboard.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Dashboard;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:DashboardViewModel}"
+             d:DesignWidth="1200" d:DesignHeight="800"
+             x:Name="Root"
+             AllowDrop="True"
+             AutomationProperties.AutomationId="Dashboard.Root"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- ===== Shared pieces of cards and rows ===== -->
+
+    <!-- Context menu of a project (cards and rows). DataContext: ProjectCardViewModel. -->
+    <ContextMenu x:Key="ProjectContextMenu" x:Shared="False">
+      <MenuItem Command="{Binding OpenCommand}" FontWeight="SemiBold" Header="Open" InputGestureText="Enter">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Open16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding OpenInExplorerCommand}" Header="Open in Explorer">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="FolderOpen16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding OpenInEditorCommand}" Header="{Binding OpenInEditorText}"
+                Visibility="{Binding CanOpenInEditor, Converter={StaticResource BoolToVisibility}}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Code16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding OpenTerminalCommand}" Header="Open terminal here">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="WindowConsole20" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding CopyPathCommand}" Header="Copy path">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Copy16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator />
+      <MenuItem Command="{Binding TogglePinCommand}" Header="{Binding PinMenuText}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Pin16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding RenameCommand}" Header="Rename…" InputGestureText="F2">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Rename16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding SetGroupCommand}" Header="Set group…">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Tag16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding LocateCommand}" Header="Locate folder…"
+                Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="FolderSearch16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator />
+      <MenuItem Command="{Binding RemoveCommand}" Foreground="{DynamicResource ForgeDangerBrush}" Header="Remove from ForgeDesk…"
+                InputGestureText="Del">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Foreground="{DynamicResource ForgeDangerBrush}" Symbol="Delete16" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </ContextMenu>
+
+    <!-- Running spinner, else the status dot. -->
+    <DataTemplate x:Key="StatusIndicatorTemplate" DataType="{x:Type vm:ProjectCardViewModel}">
+      <Grid Width="16" Height="16" ToolTip="{Binding StatusText}">
+        <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True"
+                         Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+        <controls:StatusDot HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Status="{Binding Status, Converter={StaticResource DashboardStatusToneToKind}}">
+          <controls:StatusDot.Style>
+            <Style TargetType="controls:StatusDot">
+              <Setter Property="Visibility" Value="{Binding Status, Converter={StaticResource DashboardStatusToneToVisibility}}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                  <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </controls:StatusDot.Style>
+        </controls:StatusDot>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Branch with ahead/behind counters. -->
+    <DataTemplate x:Key="BranchTemplate" DataType="{x:Type vm:ProjectCardViewModel}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding SyncToolTip}">
+        <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" Symbol="BranchFork16" />
+        <TextBlock Margin="4,0,0,0" MaxWidth="140" VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding BranchText}" />
+        <StackPanel Margin="6,0,0,0" Orientation="Horizontal" Visibility="{Binding HasAhead, Converter={StaticResource BoolToVisibility}}">
+          <ui:SymbolIcon FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource ForgeInfoBrush}" Symbol="ArrowUp12" />
+          <TextBlock Margin="1,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding Ahead}" />
+        </StackPanel>
+        <StackPanel Margin="6,0,0,0" Orientation="Horizontal" Visibility="{Binding HasBehind, Converter={StaticResource BoolToVisibility}}">
+          <ui:SymbolIcon FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="ArrowDown12" />
+          <TextBlock Margin="1,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding Behind}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Folder-not-found actions. -->
+    <DataTemplate x:Key="MissingFolderTemplate" DataType="{x:Type vm:ProjectCardViewModel}">
+      <Border Padding="12,10" Background="{DynamicResource ForgeWarningSubtleBrush}" CornerRadius="6">
+        <StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon FontSize="16" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="FolderSearch16" />
+            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="Folder not found" />
+          </StackPanel>
+          <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                     Text="It was moved, renamed or deleted. Point ForgeDesk to its new location, or remove it (nothing is deleted)." />
+          <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+            <ui:Button Height="28" Padding="10,0" Appearance="Primary" AutomationProperties.AutomationId="Dashboard.LocateButton"
+                       Command="{Binding LocateCommand}" Content="Locate…" Icon="{ui:SymbolIcon FolderSearch16}" />
+            <ui:Button Height="28" Margin="8,0,0,0" Padding="10,0" AutomationProperties.AutomationId="Dashboard.RemoveMissingButton"
+                       Command="{Binding RemoveCommand}" Content="Remove" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <!-- ===== Grid card ===== -->
+    <DataTemplate x:Key="ProjectCardTemplate" DataType="{x:Type vm:ProjectCardViewModel}">
+      <Grid Background="Transparent" ContextMenu="{StaticResource ProjectContextMenu}" ToolTip="{Binding ToolTip}">
+        <Grid.InputBindings>
+          <MouseBinding Command="{Binding OpenCommand}" Gesture="LeftDoubleClick" />
+        </Grid.InputBindings>
+        <Grid Margin="16,14,16,12">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- Identity -->
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <controls:ProjectAvatar Color="{Binding Color}" ProjectName="{Binding Name}" Size="36" />
+            <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock MaxWidth="200" Style="{StaticResource ForgeSubtitle}" Text="{Binding Name}" />
+                <ui:SymbolIcon Margin="6,0,0,0" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Symbol="Pin12" ToolTip="Pinned" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibility}}" />
+              </StackPanel>
+              <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeMonoSecondary}"
+                         Text="{Binding Path, Converter={StaticResource DashboardMiddleEllipsis}, ConverterParameter=42}" />
+            </StackPanel>
+            <ContentPresenter Grid.Column="2" VerticalAlignment="Top" Margin="0,2,0,0" Content="{Binding}"
+                              ContentTemplate="{StaticResource StatusIndicatorTemplate}" />
+          </Grid>
+
+          <!-- Missing folder replaces the details -->
+          <ContentPresenter Grid.Row="1" Grid.RowSpan="3" Margin="0,12,0,0" VerticalAlignment="Top" Content="{Binding}"
+                            ContentTemplate="{StaticResource MissingFolderTemplate}"
+                            Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}" />
+
+          <!-- Stack: language + technologies -->
+          <StackPanel Grid.Row="1" Margin="0,12,0,0" Orientation="Horizontal"
+                      Visibility="{Binding IsFolderMissing, Converter={StaticResource InverseBoolToVisibility}}">
+            <controls:Pill Margin="0,0,4,0" Kind="Info" Text="{Binding PrimaryLanguage}"
+                           Visibility="{Binding HasPrimaryLanguage, Converter={StaticResource BoolToVisibility}}" />
+            <ItemsControl Focusable="False" ItemsSource="{Binding Technologies}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <controls:Pill Margin="0,0,4,0" Text="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Checking…"
+                       Visibility="{Binding IsChecking, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+
+          <!-- Git, CI, tasks -->
+          <WrapPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal"
+                     Visibility="{Binding IsFolderMissing, Converter={StaticResource InverseBoolToVisibility}}">
+            <ContentPresenter Margin="0,0,12,0" Content="{Binding}" ContentTemplate="{StaticResource BranchTemplate}"
+                              Visibility="{Binding HasBranch, Converter={StaticResource BoolToVisibility}}" />
+            <StackPanel Margin="0,0,12,0" Orientation="Horizontal" ToolTip="Uncommitted changes"
+                        Visibility="{Binding IsGitRepository, Converter={StaticResource BoolToVisibility}}">
+              <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" Symbol="DocumentEdit16" />
+              <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding ChangedFilesText}" />
+            </StackPanel>
+            <controls:CiBadge Margin="0,0,12,0" State="{Binding CiState}" Visibility="{Binding HasCi, Converter={StaticResource BoolToVisibility}}" />
+            <StackPanel Orientation="Horizontal" ToolTip="{Binding OpenTasksText}"
+                        Visibility="{Binding HasOpenTasks, Converter={StaticResource BoolToVisibility}}">
+              <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" Symbol="TaskListSquareLtr16" />
+              <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding OpenTasks}" />
+            </StackPanel>
+          </WrapPanel>
+
+          <!-- Attention -->
+          <Grid Grid.Row="3" Margin="0,10,0,0" Visibility="{Binding IsFolderMissing, Converter={StaticResource InverseBoolToVisibility}}">
+            <ItemsControl Margin="-4,0,-4,0" Focusable="False" ItemsSource="{Binding AttentionItems}"
+                          Visibility="{Binding HasAttention, Converter={StaticResource BoolToVisibility}}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:AttentionItemViewModel}">
+                  <Button Command="{Binding DataContext.OpenAttentionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                          CommandParameter="{Binding}" IsEnabled="{Binding CanOpen}" Style="{StaticResource DashboardAttentionButtonStyle}"
+                          ToolTip="{Binding ToolTip}" ToolTipService.ShowOnDisabled="True">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <controls:StatusDot Margin="2,0,8,0" VerticalAlignment="Center" Size="7"
+                                          Status="{Binding Tone, Converter={StaticResource DashboardStatusToneToKind}}" />
+                      <TextBlock Grid.Column="1" Style="{StaticResource ForgeCaption}" Text="{Binding Message}" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel VerticalAlignment="Top" Orientation="Horizontal" Visibility="{Binding IsHealthy, Converter={StaticResource BoolToVisibility}}">
+              <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource ForgeSuccessBrush}" Symbol="CheckmarkCircle16" />
+              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Nothing needs your attention" />
+            </StackPanel>
+          </Grid>
+
+          <!-- Footer -->
+          <Grid Grid.Row="4" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" ToolTip="{Binding LastCommitSubject}"
+                        Visibility="{Binding HasLastCommit, Converter={StaticResource BoolToVisibility}}">
+              <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" FontSize="12" Symbol="History16" />
+              <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}">
+                <Run Text="Last commit" />
+                <Run>
+                  <Run.Text>
+                    <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                      <Binding Path="LastCommitAt" />
+                      <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                    </MultiBinding>
+                  </Run.Text>
+                </Run>
+              </TextBlock>
+            </StackPanel>
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding MoreAttentionText}"
+                       ToolTip="{Binding AttentionToolTip}" Visibility="{Binding MoreAttentionText, Converter={StaticResource NullToCollapsed}}" />
+          </Grid>
+        </Grid>
+      </Grid>
+    </DataTemplate>
+
+    <!-- ===== List row ===== -->
+    <DataTemplate x:Key="ProjectRowTemplate" DataType="{x:Type vm:ProjectCardViewModel}">
+      <Grid MinHeight="52" Background="Transparent" ContextMenu="{StaticResource ProjectContextMenu}" ToolTip="{Binding ToolTip}">
+        <Grid.InputBindings>
+          <MouseBinding Command="{Binding OpenCommand}" Gesture="LeftDoubleClick" />
+        </Grid.InputBindings>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="2*" MinWidth="180" />
+          <ColumnDefinition Width="1.3*" MinWidth="140" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="1.6*" MinWidth="160" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="28" />
+        </Grid.ColumnDefinitions>
+
+        <controls:ProjectAvatar VerticalAlignment="Center" Color="{Binding Color}" ProjectName="{Binding Name}" Size="28" />
+
+        <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+            <ui:SymbolIcon Margin="6,0,0,0" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Symbol="Pin12" ToolTip="Pinned" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="8,0,0,0" Kind="Info" Text="{Binding PrimaryLanguage}"
+                           Visibility="{Binding HasPrimaryLanguage, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeMonoSecondary}"
+                     Text="{Binding Path, Converter={StaticResource DashboardMiddleEllipsis}, ConverterParameter=64}" />
+        </StackPanel>
+
+        <!-- Branch or missing folder -->
+        <Grid Grid.Column="2" Margin="0,0,12,0" VerticalAlignment="Center">
+          <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BranchTemplate}"
+                            Visibility="{Binding HasBranch, Converter={StaticResource BoolToVisibility}}" />
+          <StackPanel Orientation="Horizontal" Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}">
+            <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="FolderSearch16" />
+            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="Folder not found" />
+          </StackPanel>
+          <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Checking…" Visibility="{Binding IsChecking, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+
+        <!-- Changes, CI, tasks / locate -->
+        <StackPanel Grid.Column="3" Margin="0,0,16,0" VerticalAlignment="Center" Orientation="Horizontal">
+          <StackPanel Margin="0,0,12,0" Orientation="Horizontal" ToolTip="Uncommitted changes"
+                      Visibility="{Binding IsGitRepository, Converter={StaticResource BoolToVisibility}}">
+            <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" Symbol="DocumentEdit16" />
+            <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding ChangedFilesText}" />
+          </StackPanel>
+          <controls:CiBadge Margin="0,0,12,0" ShowLabel="False" State="{Binding CiState}" Visibility="{Binding HasCi, Converter={StaticResource BoolToVisibility}}" />
+          <StackPanel Orientation="Horizontal" ToolTip="{Binding OpenTasksText}" Visibility="{Binding HasOpenTasks, Converter={StaticResource BoolToVisibility}}">
+            <ui:SymbolIcon Style="{StaticResource DashboardMetaIconStyle}" Symbol="TaskListSquareLtr16" />
+            <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding OpenTasks}" />
+          </StackPanel>
+          <ui:Button Height="28" Padding="10,0" AutomationProperties.AutomationId="Dashboard.RowLocateButton" Command="{Binding LocateCommand}"
+                     Content="Locate…" Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <!-- Most important reason -->
+        <Button Grid.Column="4" Margin="0,0,12,0" VerticalAlignment="Center" Command="{Binding OpenAttentionCommand}"
+                CommandParameter="{Binding TopAttention}" IsEnabled="{Binding TopAttention.CanOpen, FallbackValue=False}"
+                Style="{StaticResource DashboardAttentionButtonStyle}" ToolTip="{Binding AttentionToolTip}" ToolTipService.ShowOnDisabled="True"
+                Visibility="{Binding HasAttention, Converter={StaticResource BoolToVisibility}}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <controls:StatusDot Margin="2,0,8,0" VerticalAlignment="Center" Size="7"
+                                Status="{Binding TopAttention.Tone, Converter={StaticResource DashboardStatusToneToKind}}" />
+            <TextBlock Grid.Column="1" Style="{StaticResource ForgeCaption}" Text="{Binding TopAttention.Message}" />
+          </Grid>
+        </Button>
+
+        <!-- Last commit -->
+        <TextBlock Grid.Column="5" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" ToolTip="{Binding LastCommitSubject}"
+                   Visibility="{Binding HasLastCommit, Converter={StaticResource BoolToVisibility}}">
+          <TextBlock.Text>
+            <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+              <Binding Path="LastCommitAt" />
+              <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+
+        <ContentPresenter Grid.Column="6" HorizontalAlignment="Right" VerticalAlignment="Center" Content="{Binding}"
+                          ContentTemplate="{StaticResource StatusIndicatorTemplate}" />
+      </Grid>
+    </DataTemplate>
+
+    <!-- Panels of the project lists. -->
+    <ItemsPanelTemplate x:Key="CardPanelTemplate">
+      <ui:VirtualizingWrapPanel ItemSize="352,244" Orientation="Vertical" SpacingMode="None" StretchItems="False" />
+    </ItemsPanelTemplate>
+    <ItemsPanelTemplate x:Key="GroupPanelTemplate">
+      <VirtualizingStackPanel />
+    </ItemsPanelTemplate>
+
+    <!-- "Add project" split button menu. -->
+    <ContextMenu x:Key="AddProjectMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+      <MenuItem Command="{Binding AddLocalProjectCommand}" Header="Add local folder…" InputGestureText="Ctrl+O">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="FolderAdd20" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding CloneRepositoryCommand}" Header="Clone repository…" InputGestureText="Ctrl+Shift+O"
+                Visibility="{Binding CanClone, Converter={StaticResource BoolToVisibility}}">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="CloudArrowDown20" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </ContextMenu>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Header ===== -->
+    <Grid Grid.Row="0" Margin="24,20,24,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock AutomationProperties.AutomationId="Dashboard.Title" Style="{StaticResource ForgeTitle}" Text="Projects" />
+        <TextBlock Margin="0,2,0,0" AutomationProperties.AutomationId="Dashboard.Summary" Style="{StaticResource ForgeBodySecondary}"
+                   Text="{Binding SummaryText}" Visibility="{Binding HasProjects, Converter={StaticResource BoolToVisibility}}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+        <ui:Button Height="32" Margin="0,0,8,0" AutomationProperties.AutomationId="Dashboard.RefreshAllButton"
+                   Command="{Binding RefreshAllCommand}" ToolTip="Refresh the status of every project (F5)"
+                   Visibility="{Binding HasProjects, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel Orientation="Horizontal">
+            <Grid Width="16" VerticalAlignment="Center">
+              <ui:SymbolIcon FontSize="16" Symbol="ArrowSync16" Visibility="{Binding IsRefreshingAll, Converter={StaticResource InverseBoolToVisibility}}" />
+              <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True"
+                               Visibility="{Binding IsRefreshingAll, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="Refresh all" />
+          </StackPanel>
+        </ui:Button>
+        <ui:SplitButton Height="32" Appearance="Primary" AutomationProperties.AutomationId="Dashboard.AddProjectButton"
+                        Command="{Binding AddLocalProjectCommand}" Content="Add project" Flyout="{StaticResource AddProjectMenu}"
+                        Icon="{ui:SymbolIcon Add20}" ToolTip="Add a local folder (Ctrl+O)" />
+      </StackPanel>
+    </Grid>
+
+    <!-- ===== Toolbar: search, filters, sort, layout ===== -->
+    <Grid Grid.Row="1" Margin="24,16,24,12" Visibility="{Binding ShowToolbar, Converter={StaticResource BoolToVisibility}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <ui:TextBox x:Name="SearchBox" Width="260" Height="32" VerticalAlignment="Center" AutomationProperties.AutomationId="Dashboard.SearchBox"
+                  AutomationProperties.Name="Search projects" ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}"
+                  PlaceholderText="Search name, path, branch, language"
+                  Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="Search projects (Ctrl+F)">
+        <ui:TextBox.InputBindings>
+          <KeyBinding Key="Escape" Command="{Binding ClearFiltersCommand}" />
+        </ui:TextBox.InputBindings>
+      </ui:TextBox>
+
+      <ListBox Grid.Column="1" Margin="16,0,16,0" VerticalAlignment="Center" AutomationProperties.AutomationId="Dashboard.FilterChips"
+               AutomationProperties.Name="Filters" ItemContainerStyle="{StaticResource DashboardChipItemStyle}" ItemsSource="{Binding Filters}"
+               SelectedItem="{Binding SelectedFilter, Mode=TwoWay}" Style="{StaticResource DashboardChipListStyle}">
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:DashboardFilterViewModel}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock VerticalAlignment="Center" FontSize="12" Text="{Binding Title}" />
+              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Opacity="0.8" Text="{Binding Count}" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="Sort by" />
+        <ComboBox Width="170" VerticalAlignment="Center" AutomationProperties.AutomationId="Dashboard.SortSelector"
+                  AutomationProperties.Name="Sort projects by" DisplayMemberPath="Title" ItemsSource="{Binding SortOptions}"
+                  SelectedItem="{Binding SelectedSortOption, Mode=TwoWay}" />
+        <Border Margin="12,0,0,0" Style="{StaticResource DashboardSegmentGroupStyle}">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton AutomationProperties.AutomationId="Dashboard.GridLayoutButton" AutomationProperties.Name="Show as cards"
+                         GroupName="DashboardLayout" IsChecked="{Binding IsGridLayout, Mode=TwoWay}"
+                         Style="{StaticResource DashboardLayoutToggleStyle}" ToolTip="Cards">
+              <ui:SymbolIcon FontSize="16" Symbol="Grid16" />
+            </RadioButton>
+            <RadioButton AutomationProperties.AutomationId="Dashboard.ListLayoutButton" AutomationProperties.Name="Show as a list"
+                         GroupName="DashboardLayout" IsChecked="{Binding IsListLayout, Mode=TwoWay}"
+                         Style="{StaticResource DashboardLayoutToggleStyle}" ToolTip="List">
+              <ui:SymbolIcon FontSize="16" Symbol="TextBulletListLtr16" />
+            </RadioButton>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+
+    <!-- ===== Content ===== -->
+    <Grid Grid.Row="2">
+      <!-- Loading -->
+      <controls:SkeletonList Margin="12,16,12,0" VerticalAlignment="Top" AutomationProperties.AutomationId="Dashboard.Loading" RowCount="8"
+                             RowHeight="52" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+      <!-- Error -->
+      <controls:ErrorPanel Margin="24" VerticalAlignment="Top" AutomationProperties.AutomationId="Dashboard.Error" Error="{Binding Error}"
+                           RetryCommand="{Binding RefreshCommand}" />
+
+      <!-- No match -->
+      <controls:EmptyState AutomationProperties.AutomationId="Dashboard.NoMatches" ActionCommand="{Binding ClearFiltersCommand}"
+                           ActionText="Clear search and filters" Description="{Binding NoMatchesDescription}" Icon="Search24" Title="No matching projects"
+                           Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVisibility}}" />
+
+      <!-- Cards -->
+      <ListBox x:Name="ProjectGrid" Margin="24,0,8,0" AutomationProperties.AutomationId="Dashboard.ProjectGrid" AutomationProperties.Name="Projects"
+               Background="Transparent" BorderThickness="0" IsTextSearchEnabled="False" ItemContainerStyle="{StaticResource DashboardCardItemStyle}"
+               ItemTemplate="{StaticResource ProjectCardTemplate}" ItemsSource="{Binding Projects}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               SelectedItem="{Binding SelectedProject, Mode=TwoWay}" SelectionMode="Single"
+               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+               VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.VirtualizationMode="Recycling"
+               Visibility="{Binding ShowGrid, Converter={StaticResource BoolToVisibility}}">
+        <ListBox.Style>
+          <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+            <Setter Property="ItemsPanel" Value="{StaticResource CardPanelTemplate}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsGrouped}" Value="True">
+                <Setter Property="ItemsPanel" Value="{StaticResource GroupPanelTemplate}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </ListBox.Style>
+        <ListBox.GroupStyle>
+          <GroupStyle HeaderTemplate="{StaticResource DashboardGroupHeaderTemplate}">
+            <GroupStyle.Panel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </GroupStyle.Panel>
+          </GroupStyle>
+        </ListBox.GroupStyle>
+        <ListBox.InputBindings>
+          <KeyBinding Key="Enter" Command="{Binding SelectedProject.OpenCommand}" />
+          <KeyBinding Key="Delete" Command="{Binding SelectedProject.RemoveCommand}" />
+          <KeyBinding Key="F2" Command="{Binding SelectedProject.RenameCommand}" />
+        </ListBox.InputBindings>
+      </ListBox>
+
+      <!-- Rows -->
+      <ListBox x:Name="ProjectList" Margin="12,0,12,0" Padding="0,0,0,12" AutomationProperties.AutomationId="Dashboard.ProjectList"
+               AutomationProperties.Name="Projects" ItemContainerStyle="{StaticResource DashboardRowItemStyle}"
+               ItemTemplate="{StaticResource ProjectRowTemplate}" ItemsSource="{Binding Projects}"
+               SelectedItem="{Binding SelectedProject, Mode=TwoWay}" SelectionMode="Single" Style="{StaticResource ForgeDenseListBoxStyle}"
+               VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+               Visibility="{Binding ShowList, Converter={StaticResource BoolToVisibility}}">
+        <ListBox.GroupStyle>
+          <GroupStyle HeaderTemplate="{StaticResource DashboardGroupHeaderTemplate}">
+            <GroupStyle.Panel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </GroupStyle.Panel>
+          </GroupStyle>
+        </ListBox.GroupStyle>
+        <ListBox.InputBindings>
+          <KeyBinding Key="Enter" Command="{Binding SelectedProject.OpenCommand}" />
+          <KeyBinding Key="Delete" Command="{Binding SelectedProject.RemoveCommand}" />
+          <KeyBinding Key="F2" Command="{Binding SelectedProject.RenameCommand}" />
+        </ListBox.InputBindings>
+      </ListBox>
+
+      <!-- Welcome hero (no project yet) -->
+      <ScrollViewer AutomationProperties.AutomationId="Dashboard.Hero" Focusable="False" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto" Visibility="{Binding ShowHero, Converter={StaticResource BoolToVisibility}}">
+        <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+        <StackPanel MaxWidth="600" Margin="24,8,24,32" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Image Width="96" Height="96" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"
+                 Source="{StaticResource ForgeLogoImage}" />
+          <TextBlock Margin="0,20,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeDisplay}" Text="Welcome to ForgeDesk" />
+          <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" TextAlignment="Center"
+                     TextWrapping="Wrap"
+                     Text="Your cockpit for local and GitHub projects: see what needs attention, then commit, run and ship without switching tools." />
+
+          <StackPanel Margin="0,28,0,0" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Button AutomationProperties.AutomationId="Dashboard.HeroAddFolderButton" Command="{Binding AddLocalProjectCommand}"
+                    Style="{StaticResource DashboardHeroActionStyle}">
+              <StackPanel>
+                <Border Style="{StaticResource DashboardHeroIconTileStyle}">
+                  <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22"
+                                 Foreground="{DynamicResource ForgeAccentTextBrush}" Symbol="FolderAdd24" />
+                </Border>
+                <TextBlock Margin="0,14,0,0" Style="{StaticResource ForgeSubtitle}" Text="Add a local folder" />
+                <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="Pick a project that is already on this computer." />
+                <controls:KeyHint Margin="0,12,0,0" HorizontalAlignment="Left" Keys="Ctrl+O" />
+              </StackPanel>
+            </Button>
+            <Button Margin="16,0,0,0" AutomationProperties.AutomationId="Dashboard.HeroCloneButton" Command="{Binding CloneRepositoryCommand}"
+                    Style="{StaticResource DashboardHeroActionStyle}">
+              <StackPanel>
+                <Border Style="{StaticResource DashboardHeroIconTileStyle}">
+                  <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22"
+                                 Foreground="{DynamicResource ForgeAccentTextBrush}" Symbol="CloudArrowDown24" />
+                </Border>
+                <TextBlock Margin="0,14,0,0" Style="{StaticResource ForgeSubtitle}" Text="Clone from GitHub" />
+                <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="Copy one of your repositories, or any git URL, to this computer." />
+                <controls:KeyHint Margin="0,12,0,0" HorizontalAlignment="Left" Keys="Ctrl+Shift+O" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0" HorizontalAlignment="Center" Orientation="Horizontal">
+            <ui:SymbolIcon FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Lightbulb20" />
+            <TextBlock Margin="8,0,6,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="Tip: press" />
+            <controls:KeyHint VerticalAlignment="Center" Keys="Ctrl+K" />
+            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}"
+                       Text="anywhere to search and run commands — or drop folders here." />
+          </StackPanel>
+        </StackPanel>
+        </Grid>
+      </ScrollViewer>
+
+      <!-- Drop target feedback (shown by the code-behind while folders are dragged over). -->
+      <Border x:Name="DropOverlay" Margin="16" AutomationProperties.AutomationId="Dashboard.DropOverlay" Background="{DynamicResource ForgeAccentSubtleBrush}"
+              CornerRadius="8" IsHitTestVisible="False" Visibility="Collapsed">
+        <Border BorderBrush="{DynamicResource ForgeAccentBrush}" BorderThickness="2" CornerRadius="8">
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <ui:SymbolIcon HorizontalAlignment="Center" FontSize="40" Foreground="{DynamicResource ForgeAccentTextBrush}" Symbol="FolderAdd24" />
+            <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeSubtitle}" Text="Drop folders to add them to ForgeDesk" />
+            <TextBlock Margin="0,4,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeBodySecondary}"
+                       Text="Each folder becomes a project. Files are ignored." />
+          </StackPanel>
+        </Border>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
