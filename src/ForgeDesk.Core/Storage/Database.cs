@@ -21,6 +21,11 @@ public sealed class Database
 
     static Database()
     {
+        // Dapper's built-in type map wins over type handlers when binding parameters, so without
+        // these removals DateTimeOffset values would be written by Microsoft.Data.Sqlite with their
+        // local offset, and the TEXT columns would no longer sort or compare in time order.
+        SqlMapper.RemoveTypeMap(typeof(DateTimeOffset));
+        SqlMapper.RemoveTypeMap(typeof(DateTimeOffset?));
         SqlMapper.AddTypeHandler(new DateTimeOffsetHandler());
         SqlMapper.AddTypeHandler(new NullableDateTimeOffsetHandler());
         DefaultTypeMap.MatchNamesWithUnderscores = true;
@@ -56,7 +61,7 @@ public sealed class Database
         Directory.CreateDirectory(Path.GetDirectoryName(Paths.DatabasePath)!);
         Directory.CreateDirectory(Paths.BackupsDirectory);
 
-        if (File.Exists(Paths.DatabasePath) && !await IsHealthyAsync(Paths.DatabasePath, cancellationToken).ConfigureAwait(false))
+        if (File.Exists(Paths.DatabasePath) && !await IsUsableAsync(cancellationToken).ConfigureAwait(false))
         {
             var quarantined = Quarantine();
             var restored = TryRestoreLatestBackup();
@@ -67,6 +72,80 @@ public sealed class Database
 
         await MigrateAsync(cancellationToken).ConfigureAwait(false);
         return new DatabaseOpenResult(false, null, null);
+    }
+
+    /// <summary>Set when SQLite reported corruption at runtime; makes the next start run the full check.</summary>
+    private string RecoveryMarkerPath => Paths.DatabasePath + ".needs-check";
+
+    /// <summary>
+    /// The quick check (every start) misses damaged index contents, a common cause of "malformed"
+    /// errors on updates. After such a runtime error the full integrity check runs; damaged indexes
+    /// are rebuilt in place (no data lost), anything else is reported unusable.
+    /// </summary>
+    private async Task<bool> IsUsableAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(RecoveryMarkerPath))
+        {
+            return await IsHealthyAsync(Paths.DatabasePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        var usable = await TryRepairAsync(cancellationToken).ConfigureAwait(false);
+        TryDeleteRecoveryMarker();
+        return usable;
+    }
+
+    private async Task<bool> TryRepairAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var connection = new SqliteConnection($"Data Source={Paths.DatabasePath};Pooling=False");
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            if (await IntegrityOkAsync(connection).ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            await connection.ExecuteAsync("REINDEX;").ConfigureAwait(false);
+            var repaired = await IntegrityOkAsync(connection).ConfigureAwait(false);
+            if (repaired)
+            {
+                _logger.LogWarning("Database indexes were damaged and have been rebuilt");
+            }
+
+            return repaired;
+        }
+        catch (SqliteException ex)
+        {
+            _logger.LogWarning(ex, "Database integrity check failed");
+            return false;
+        }
+    }
+
+    private static async Task<bool> IntegrityOkAsync(SqliteConnection connection) =>
+        string.Equals(await connection.ExecuteScalarAsync<string>("PRAGMA integrity_check;").ConfigureAwait(false), "ok", StringComparison.OrdinalIgnoreCase);
+
+    private void TryMarkForRecovery()
+    {
+        try
+        {
+            File.WriteAllText(RecoveryMarkerPath, string.Empty);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not write the database recovery marker");
+        }
+    }
+
+    private void TryDeleteRecoveryMarker()
+    {
+        try
+        {
+            File.Delete(RecoveryMarkerPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not delete the database recovery marker");
+        }
     }
 
     public SqliteConnection OpenConnection()
@@ -234,10 +313,21 @@ public sealed class Database
         }
     }
 
-    private static ForgeException Translate(SqliteException ex) => ex.SqliteErrorCode switch
+    private ForgeException Translate(SqliteException ex)
+    {
+        if (ex.SqliteErrorCode is 11 or 26)
+        {
+            // The next start must run the full integrity check: the quick one can pass on this file.
+            TryMarkForRecovery();
+        }
+
+        return TranslateCode(ex);
+    }
+
+    private static ForgeException TranslateCode(SqliteException ex) => ex.SqliteErrorCode switch
     {
         11 or 26 => new ForgeException(ErrorKind.StorageCorrupted, "ForgeDesk's local database is damaged.",
-            "Restart ForgeDesk: it will restore the latest backup automatically.", ex.Message, ex),
+            "Restart ForgeDesk: it will repair the database or restore the latest backup automatically.", ex.Message, ex),
         5 or 6 => new ForgeException(ErrorKind.StorageFailure, "ForgeDesk's local database is busy.",
             "Another ForgeDesk window may be running. Try again in a moment.", ex.Message, ex),
         13 => new ForgeException(ErrorKind.StorageFailure, "The disk is full.",

@@ -361,9 +361,17 @@ internal sealed partial class ProjectRegistry : IProjectRegistry
         return name.Length > MaxNameLength ? name[..MaxNameLength] : name;
     }
 
-    private static Task<IEnumerable<ProjectRow>> QueryByPathAsync(SqliteConnection connection, string normalizedPath, CancellationToken cancellationToken) =>
-        connection.QueryAsync<ProjectRow>(new CommandDefinition(
-            $"SELECT {Columns} FROM projects WHERE path = @Path COLLATE NOCASE", new { Path = normalizedPath }, cancellationToken: cancellationToken));
+    /// <summary>
+    /// Registered projects whose path equals <paramref name="normalizedPath"/> ignoring case. SQLite's
+    /// NOCASE only folds A-Z while NTFS also folds "É"/"é", so the comparison is done here with
+    /// OrdinalIgnoreCase (the registry holds a handful of rows; the unique index still guards A-Z).
+    /// </summary>
+    private static async Task<IEnumerable<ProjectRow>> QueryByPathAsync(SqliteConnection connection, string normalizedPath, CancellationToken cancellationToken)
+    {
+        var rows = await connection.QueryAsync<ProjectRow>(new CommandDefinition(
+            $"SELECT {Columns} FROM projects", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Where(r => string.Equals(r.Path, normalizedPath, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
 
     /// <summary>
     /// The path index ignores case (NTFS does). On case-sensitive file systems two folders that only

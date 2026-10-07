@@ -82,9 +82,16 @@ internal static class WorkflowFileParser
         var builder = new StringBuilder(firstValue);
         var rawLines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var next = lineIndex + 1;
-        while (Balance(builder.ToString()) > 0 && next < rawLines.Length)
+
+        // The depth is updated with each appended piece only (quote state carried over), so the scan stays linear.
+        var scan = default(FlowScan);
+        scan.Feed(firstValue);
+        while (scan.Depth > 0 && next < rawLines.Length)
         {
-            builder.Append(' ').Append(rawLines[next++].Trim());
+            var line = rawLines[next++].Trim();
+            builder.Append(' ').Append(line);
+            scan.Feed(" ");
+            scan.Feed(line);
         }
 
         return builder.ToString();
@@ -158,33 +165,37 @@ internal static class WorkflowFileParser
         return parts.Where(p => p.Length > 0).ToList();
     }
 
-    private static int Balance(string text)
+    /// <summary>Nesting depth of a flow collection fed piece by piece, ignoring brackets inside quotes.</summary>
+    private struct FlowScan
     {
-        var depth = 0;
-        char? quote = null;
-        foreach (var c in text)
+        private char? _quote;
+
+        public int Depth { get; private set; }
+
+        public void Feed(string text)
         {
-            if (quote is not null)
+            foreach (var c in text)
             {
-                if (c == quote)
+                if (_quote is not null)
                 {
-                    quote = null;
+                    if (c == _quote)
+                    {
+                        _quote = null;
+                    }
+                }
+                else if (c is '"' or '\'')
+                {
+                    _quote = c;
+                }
+                else if (c is '[' or '{')
+                {
+                    Depth++;
+                }
+                else if (c is ']' or '}')
+                {
+                    Depth--;
                 }
             }
-            else if (c is '"' or '\'')
-            {
-                quote = c;
-            }
-            else if (c is '[' or '{')
-            {
-                depth++;
-            }
-            else if (c is ']' or '}')
-            {
-                depth--;
-            }
         }
-
-        return depth;
     }
 }

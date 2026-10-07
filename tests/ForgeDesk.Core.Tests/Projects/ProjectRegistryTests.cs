@@ -173,6 +173,29 @@ public sealed class ProjectRegistryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Non_ascii_paths_differing_only_by_case_are_the_same_project()
+    {
+        // SQLite's NOCASE only folds A-Z; NTFS (and OrdinalIgnoreCase) also fold É/é.
+        var path = Folder("Été-Öl");
+        await _registry.AddAsync(path, cancellationToken: Ct);
+        var otherCase = Path.Combine(Path.GetDirectoryName(path)!, "été-öl");
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        {
+            Directory.CreateDirectory(otherCase);
+        }
+
+        var act = () => _registry.AddAsync(otherCase, cancellationToken: Ct);
+
+        var error = (await act.Should().ThrowAsync<ForgeException>()).Which;
+        error.Kind.Should().Be(ErrorKind.AlreadyExists);
+        (await _registry.GetAllAsync(Ct)).Should().ContainSingle();
+        if (OperatingSystem.IsWindows())
+        {
+            (await _registry.FindByPathAsync(otherCase, Ct)).Should().NotBeNull();
+        }
+    }
+
+    [Fact]
     public async Task Missing_folder_is_reported_as_path_not_found()
     {
         var act = () => _registry.AddAsync(_folders.Combine("does-not-exist"), cancellationToken: Ct);
