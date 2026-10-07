@@ -8,6 +8,11 @@ public sealed class ProcessRunner : IProcessRunner
 {
     public static readonly ProcessRunner Instance = new();
 
+    /// <summary>How long output is still collected after the process exited (descendants may hold the pipes).</summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);
+
+    private const string TruncatedMarker = "… [output truncated]";
+
     public Task<ProcessResult> RunAsync(ProcessSpec spec, CancellationToken cancellationToken = default) =>
         RunAsync(spec, static _ => { }, cancellationToken);
 
@@ -71,6 +76,11 @@ public sealed class ProcessRunner : IProcessRunner
         var stdoutDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stderrDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        // Exited fires when the process ends. WaitForExitAsync would also wait for the output pipes to reach
+        // EOF, which never happens while a background grand-child (a hook's daemon…) keeps them open.
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.Exited += (_, _) => exited.TrySetResult();
+
         process.OutputDataReceived += (_, e) =>
         {
             if (e.Data is null)
@@ -109,29 +119,23 @@ public sealed class ProcessRunner : IProcessRunner
                 "Make sure the program is installed and available in your PATH.", ex.Message, ex);
         }
 
+        if (process.HasExited)
+        {
+            exited.TrySetResult();
+        }
+
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-
-        try
-        {
-            if (spec.StandardInput is not null)
-            {
-                await process.StandardInput.WriteAsync(spec.StandardInput.AsMemory(), cancellationToken).ConfigureAwait(false);
-            }
-
-            process.StandardInput.Close();
-        }
-        catch (IOException)
-        {
-            // The process exited before reading its input; the exit code tells the story.
-        }
 
         var timedOut = false;
         using var timeoutCts = spec.Timeout is { } t ? new CancellationTokenSource(t) : new CancellationTokenSource();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        // Standard input is fed while waiting, so the timeout and cancellation also cover a child that reads it slowly (or never).
+        var feed = FeedStandardInputAsync(process.StandardInput, spec.StandardInput, linked.Token);
         try
         {
-            await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
+            await exited.Task.WaitAsync(linked.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -145,11 +149,37 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         // Drain the output pipes, but never hang forever on grand-children keeping them open.
-        await Task.WhenAny(Task.WhenAll(stdoutDone.Task, stderrDone.Task), Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None)).ConfigureAwait(false);
+        await Task.WhenAny(Task.WhenAll(stdoutDone.Task, stderrDone.Task, feed), Task.Delay(DrainTimeout, CancellationToken.None)).ConfigureAwait(false);
         stopwatch.Stop();
 
         var exitCode = timedOut ? -1 : SafeExitCode(process);
         return new ProcessResult(exitCode, stdout.ToString(), stderr.ToString(), stopwatch.Elapsed, timedOut);
+    }
+
+    /// <summary>Writes the optional input then closes stdin. Never throws: a child exiting before reading it is normal.</summary>
+    private static async Task FeedStandardInputAsync(StreamWriter stdin, string? input, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (input is not null)
+            {
+                await stdin.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
+
+            stdin.Close();
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            // The process exited before reading its input (the exit code tells the story), or we gave up on it.
+            // Release our end of the pipe without flushing the writer: a flush could block on a full pipe.
+            try
+            {
+                stdin.BaseStream.Dispose();
+            }
+            catch (Exception disposeError) when (disposeError is IOException or ObjectDisposedException)
+            {
+            }
+        }
     }
 
     /// <summary>Kills a process and all of its descendants, swallowing races with natural exit.</summary>
@@ -215,7 +245,17 @@ public sealed class ProcessRunner : IProcessRunner
                 if (_builder.Length + line.Length + 1 > maxChars)
                 {
                     _truncated = true;
-                    _builder.AppendLine("… [output truncated]");
+
+                    // NUL-separated output (-z) arrives as one huge "line": keep the whole records that fit.
+                    var room = Math.Min(maxChars - _builder.Length - 1, line.Length);
+                    var lastRecordEnd = room > 0 ? line.LastIndexOf('\0', room - 1) : -1;
+                    if (lastRecordEnd >= 0)
+                    {
+                        _builder.Append(line, 0, lastRecordEnd + 1);
+                    }
+
+                    // '\n', not AppendLine: callers detect truncation by the marker followed by a line feed.
+                    _builder.Append(TruncatedMarker).Append('\n');
                     return;
                 }
 

@@ -36,7 +36,21 @@ public class FilesRegistrationTests
         new GitCli(ProcessRunner.Instance, settings).Executable.Should().Be(typeof(FilesRegistrationTests).Assembly.Location);
 
         settings.Current.Returns(AppSettings.Default with { GitExecutablePath = "/definitely/missing/git" });
-        new GitCli(ProcessRunner.Instance, settings).Executable.Should().Be("git");
+        var fallback = new GitCli(ProcessRunner.Instance, settings).Executable;
+        Path.IsPathRooted(fallback).Should().BeTrue("the git on PATH is used, by absolute path");
+        File.Exists(fallback).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Git_is_started_by_absolute_path_never_by_bare_name()
+    {
+        // A bare "git" lets Windows (and .NET on Unix) pick a git.exe planted in the current directory first.
+        var executable = new GitCli(ProcessRunner.Instance).Executable;
+
+        executable.Should().NotBeNull("git is installed on test machines");
+        Path.IsPathRooted(executable).Should().BeTrue();
+        Path.GetFileNameWithoutExtension(executable).Should().Be("git");
+        File.Exists(executable).Should().BeTrue();
     }
 
     [Theory]

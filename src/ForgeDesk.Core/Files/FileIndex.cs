@@ -110,13 +110,30 @@ internal sealed class FileIndex : IFileIndex
         // folder named "build" or "packages", so that listing is not filtered.
         var magic = OperatingSystem.IsWindows() ? "exclude,glob,icase" : "exclude,glob";
         string[] untrackedArguments = ["ls-files", "--others", "--exclude-standard", "--", .. HeavyFolders.Names.Select(n => $":({magic})**/{n}/**")];
-        var tracked = ListGitPathsAsync(root, ["ls-files", "--cached"], MaxFiles + 1);
+        // -t --stage: the tag flags skip-worktree entries (S) and the mode flags submodules (160000).
+        var tracked = ListGitPathsAsync(root, ["ls-files", "--cached", "-t", "--stage"], MaxFiles + 1, raw: true);
         var untracked = ListGitPathsAsync(root, untrackedArguments, MaxFiles + 1);
         var deleted = ListGitPathsAsync(root, ["ls-files", "--deleted"], MaxFiles + 1);
         await Task.WhenAll(tracked, untracked, deleted).ConfigureAwait(false);
-        if (tracked.Result is not { } trackedPaths || untracked.Result is not { } untrackedPaths || deleted.Result is not { } deletedPaths)
+        if (tracked.Result is not { } trackedLines || untracked.Result is not { } untrackedEntries || deleted.Result is not { } deletedPaths)
         {
             return null;
+        }
+
+        // Submodules and untracked nested repositories ("inner/") are folders to walk, not files.
+        var nested = new List<string>();
+        var trackedPaths = ParseTrackedEntries(root, trackedLines, nested);
+        var untrackedPaths = new List<string>(untrackedEntries.Count);
+        foreach (var entry in untrackedEntries)
+        {
+            if (entry.EndsWith('/'))
+            {
+                nested.Add(entry.TrimEnd('/'));
+            }
+            else
+            {
+                untrackedPaths.Add(entry);
+            }
         }
 
         var removed = new HashSet<string>(deletedPaths, StringComparer.Ordinal);
@@ -124,8 +141,13 @@ internal sealed class FileIndex : IFileIndex
         var files = new List<string>(Math.Min(trackedPaths.Count + untrackedPaths.Count, MaxFiles));
         var truncated = false;
 
-        foreach (var paths in new[] { trackedPaths, untrackedPaths })
+        foreach (var paths in new[] { trackedPaths, untrackedPaths, WalkNested(root, nested) })
         {
+            if (truncated)
+            {
+                break;
+            }
+
             foreach (var path in paths)
             {
                 if (removed.Contains(path) || !seen.Add(path))
@@ -146,8 +168,56 @@ internal sealed class FileIndex : IFileIndex
         return (files, truncated);
     }
 
+    /// <summary>
+    /// Parses "TAG MODE OBJECT STAGE\tPATH" lines of <c>ls-files -t --stage</c>. Submodules (gitlinks) go to
+    /// <paramref name="nested"/>; skip-worktree entries missing on disk (outside a sparse checkout) are dropped.
+    /// </summary>
+    private static List<string> ParseTrackedEntries(string root, List<string> lines, List<string> nested)
+    {
+        var paths = new List<string>(lines.Count);
+        foreach (var line in lines)
+        {
+            var tab = line.IndexOf('\t', StringComparison.Ordinal);
+            if (tab < 0)
+            {
+                continue;
+            }
+
+            var meta = line.AsSpan(0, tab);
+            var path = GitCli.UnquotePath(line[(tab + 1)..]);
+            if (meta.Contains(" 160000 ", StringComparison.Ordinal))
+            {
+                nested.Add(path);
+            }
+            else if (!meta.StartsWith("S ", StringComparison.Ordinal) || File.Exists(Path.Combine(root, path)))
+            {
+                paths.Add(path);
+            }
+        }
+
+        return paths;
+    }
+
+    /// <summary>The files of submodules and nested repositories, which git lists as a single folder entry.</summary>
+    private static IEnumerable<string> WalkNested(string root, List<string> folders)
+    {
+        foreach (var folder in folders)
+        {
+            var full = Path.Combine(root, folder);
+            if (!Directory.Exists(full))
+            {
+                continue;
+            }
+
+            foreach (var file in ProjectFileWalker.EnumerateFiles(full))
+            {
+                yield return $"{folder}/{file}";
+            }
+        }
+    }
+
     /// <summary>Streams one git ls-files listing; null when git is unavailable or fails.</summary>
-    private async Task<List<string>?> ListGitPathsAsync(string root, string[] arguments, int cap)
+    private async Task<List<string>?> ListGitPathsAsync(string root, string[] arguments, int cap, bool raw = false)
     {
         var paths = new List<string>();
         var gate = new Lock();
@@ -163,7 +233,7 @@ internal sealed class FileIndex : IFileIndex
                         return;
                     }
 
-                    paths.Add(GitCli.UnquotePath(line));
+                    paths.Add(raw ? line : GitCli.UnquotePath(line));
                     if (paths.Count >= cap)
                     {
                         enough.Cancel();

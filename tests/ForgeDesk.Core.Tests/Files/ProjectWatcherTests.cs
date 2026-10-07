@@ -198,6 +198,98 @@ public class ProjectWatcherTests
         e.ProjectRoot.Should().Be(ForgeDesk.Core.Common.PathUtil.Normalize(second.Path));
     }
 
+    private static void RaiseError(FileSystemWatcher watcher, Exception error) =>
+        typeof(FileSystemWatcher)
+            .GetMethod("OnError", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(watcher, [new ErrorEventArgs(error)]);
+
+    [Fact]
+    public async Task A_watch_failing_while_it_starts_does_not_recurse_or_leak_watchers()
+    {
+        using var dir = new TempDirectory();
+        var starts = 0;
+        using var watcher = new ProjectWatcher(TimeSpan.FromMilliseconds(100))
+        {
+            RecreateDelay = TimeSpan.FromMilliseconds(50),
+            MaxConsecutiveFailures = 3,
+            StartWatching = w =>
+            {
+                // Safety net so the unfixed code cannot overflow the test host's stack.
+                if (Interlocked.Increment(ref starts) <= 50)
+                {
+                    RaiseError(w, new IOException("The network share does not support change notifications."));
+                }
+            },
+        };
+
+        watcher.Watch(dir.Path);
+        await Task.Delay(1000, Ct);
+
+        starts.Should().BeLessThanOrEqualTo(4, "a failing start must neither recurse nor retry without bound");
+        watcher.WatchedRoots.Should().BeEmpty("a folder that cannot be watched is not registered");
+    }
+
+    [Fact]
+    public async Task A_watch_that_keeps_failing_backs_off_then_gives_up()
+    {
+        using var dir = new TempDirectory();
+        var starts = 0;
+        var changes = 0;
+        using var watcher = new ProjectWatcher(TimeSpan.FromMilliseconds(20))
+        {
+            RecreateDelay = TimeSpan.FromMilliseconds(50),
+            MaxConsecutiveFailures = 3,
+            StartWatching = w =>
+            {
+                Interlocked.Increment(ref starts);
+                w.EnableRaisingEvents = true;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(10);
+                    RaiseError(w, new IOException("The specified network name is no longer available."));
+                });
+            },
+        };
+        watcher.Changed += (_, _) => Interlocked.Increment(ref changes);
+
+        watcher.Watch(dir.Path);
+        await Task.Delay(2000, Ct);
+        var startsAfterSettling = Volatile.Read(ref starts);
+        var changesAfterSettling = Volatile.Read(ref changes);
+        await Task.Delay(1000, Ct);
+
+        startsAfterSettling.Should().Be(4, "the first watch plus three retries");
+        Volatile.Read(ref starts).Should().Be(startsAfterSettling, "the watcher gave up");
+        Volatile.Read(ref changes).Should().Be(changesAfterSettling, "no refresh is forced once the watcher gave up");
+    }
+
+    [Fact]
+    public async Task A_buffer_overflow_refreshes_everything_and_keeps_the_same_watcher()
+    {
+        using var dir = new TempDirectory();
+        var created = new ConcurrentQueue<FileSystemWatcher>();
+        using var watcher = new ProjectWatcher(TimeSpan.FromMilliseconds(50))
+        {
+            StartWatching = w =>
+            {
+                created.Enqueue(w);
+                w.EnableRaisingEvents = true;
+            },
+        };
+        var events = new ConcurrentQueue<ProjectFilesChangedEventArgs>();
+        watcher.Changed += (_, e) => events.Enqueue(e);
+        watcher.Watch(dir.Path);
+
+        RaiseError(created.Single(), new InternalBufferOverflowException());
+        await Task.Delay(500, Ct);
+
+        events.Should().ContainSingle(e => e.GitMetadataChanged && e.WorkingTreeChanged);
+        created.Should().ContainSingle();
+        dir.WriteFile("after.txt", "x");
+        await Task.Delay(500, Ct);
+        events.Should().Contain(e => !e.GitMetadataChanged && e.WorkingTreeChanged);
+    }
+
     [Fact]
     public void Dispose_is_idempotent_and_blocks_new_watches()
     {

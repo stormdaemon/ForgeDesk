@@ -35,6 +35,59 @@ public class FileIndexTests
     }
 
     [Fact]
+    public async Task Submodules_are_indexed_by_their_files_not_as_a_file()
+    {
+        using var sub = TestRepository.Create();
+        sub.Commit("sub", ("s.txt", "x"), ("lib/deep.cs", "x"));
+        using var repo = TestRepository.Create();
+        repo.Git("-c", "protocol.file.allow=always", "submodule", "add", sub.Path, "libs/sub");
+        repo.Git("commit", "-m", "add submodule");
+
+        var snapshot = await CreateIndex().GetAsync(repo.Path, cancellationToken: Ct);
+
+        snapshot.Files.Should().Contain(["libs/sub/s.txt", "libs/sub/lib/deep.cs", "libs/sub/README.md", ".gitmodules"]);
+        snapshot.Files.Should().NotContain("libs/sub");
+    }
+
+    [Fact]
+    public async Task Untracked_nested_repositories_are_indexed_by_their_files()
+    {
+        using var repo = TestRepository.Create();
+        repo.Git("init", "inner");
+        repo.WriteFile("inner/x.txt", "x");
+
+        var snapshot = await CreateIndex().GetAsync(repo.Path, cancellationToken: Ct);
+
+        snapshot.Files.Should().Contain("inner/x.txt");
+        snapshot.Files.Should().NotContain(f => f.EndsWith('/') || f == "inner");
+    }
+
+    [Fact]
+    public async Task Files_outside_the_sparse_checkout_are_not_indexed()
+    {
+        using var repo = TestRepository.Create();
+        repo.Commit("files", ("a/x.txt", "x"), ("b/y.txt", "x"));
+        repo.Git("sparse-checkout", "set", "a");
+        File.Exists(repo.Combine("b", "y.txt")).Should().BeFalse();
+
+        var snapshot = await CreateIndex().GetAsync(repo.Path, cancellationToken: Ct);
+
+        snapshot.Files.Should().BeEquivalentTo(["README.md", "a/x.txt"]);
+    }
+
+    [Fact]
+    public async Task Skip_worktree_files_present_on_disk_stay_indexed()
+    {
+        using var repo = TestRepository.Create();
+        repo.Commit("files", ("config.json", "{}"));
+        repo.Git("update-index", "--skip-worktree", "config.json");
+
+        var snapshot = await CreateIndex().GetAsync(repo.Path, cancellationToken: Ct);
+
+        snapshot.Files.Should().BeEquivalentTo(["README.md", "config.json"]);
+    }
+
+    [Fact]
     public async Task Repository_subfolder_lists_paths_relative_to_the_project()
     {
         using var repo = TestRepository.Create();

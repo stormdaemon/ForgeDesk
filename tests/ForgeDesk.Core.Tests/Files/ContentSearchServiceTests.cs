@@ -91,6 +91,28 @@ public class ContentSearchServiceTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public async Task Non_ascii_text_matches_the_same_way_in_both_engines(bool useGit)
+    {
+        using var repo = TestRepository.Create();
+        repo.Commit("accents", ("fr.txt", "école\nÉCOLE\nnaïve café\ncafé crème\n"));
+
+        var caseInsensitive = await SearchAsync(repo.Path, new ContentSearchQuery { Pattern = "ÉCOLE" }, useGit);
+        caseInsensitive.Matches.Select(m => m.LineNumber).Should().Equal(1, 2);
+
+        var regex = await SearchAsync(repo.Path, new ContentSearchQuery { Pattern = "caf.$", IsRegex = true }, useGit);
+        regex.Matches.Select(m => m.LineNumber).Should().Equal(3);
+
+        var wholeWord = await SearchAsync(repo.Path, new ContentSearchQuery { Pattern = "caf", WholeWord = true }, useGit);
+        wholeWord.Matches.Should().BeEmpty("'café' is one word");
+
+        var wholeWordAccented = await SearchAsync(repo.Path, new ContentSearchQuery { Pattern = "café", WholeWord = true }, useGit);
+        wholeWordAccented.Matches.Should().AllSatisfy(m => m.Length.Should().Be(4));
+        wholeWordAccented.Matches.Select(m => m.LineNumber).Should().Equal(3, 4);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public async Task Path_filter_limits_the_searched_files(bool useGit)
     {
         using var repo = CreateSampleRepository();

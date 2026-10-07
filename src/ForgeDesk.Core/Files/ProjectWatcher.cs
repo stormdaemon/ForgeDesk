@@ -8,7 +8,9 @@ namespace ForgeDesk.Core.Files;
 /// One recursive <see cref="FileSystemWatcher"/> per open project. Relevant events are coalesced
 /// per project (trailing debounce, with a maximum delay so a long build still refreshes now and
 /// then) into a single <see cref="Changed"/> notification. A watcher buffer overflow means events
-/// were lost: the project is reported as fully changed and the watcher recreated.
+/// were lost: the project is reported as fully changed (the watcher keeps running). Any other
+/// watcher error reports the project as changed and recreates the watcher with exponential
+/// backoff; after <see cref="MaxConsecutiveFailures"/> failures in a row the project stays unwatched.
 /// </summary>
 internal sealed class ProjectWatcher : IProjectWatcher
 {
@@ -40,6 +42,15 @@ internal sealed class ProjectWatcher : IProjectWatcher
 
     /// <summary>Longest time a burst of events can postpone the notification.</summary>
     internal TimeSpan MaxDelay { get; }
+
+    /// <summary>Turns a configured watcher on. Tests replace it to simulate watches that fail.</summary>
+    internal Action<FileSystemWatcher> StartWatching { get; init; } = static watcher => watcher.EnableRaisingEvents = true;
+
+    /// <summary>Delay before the first attempt to recreate a failed watcher; doubled after each consecutive failure.</summary>
+    internal TimeSpan RecreateDelay { get; init; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>Consecutive failures after which a project stays unwatched (it still refreshes on focus and F5).</summary>
+    internal int MaxConsecutiveFailures { get; init; } = 5;
 
     internal IReadOnlyCollection<string> WatchedRoots
     {
@@ -126,11 +137,21 @@ internal sealed class ProjectWatcher : IProjectWatcher
 
     private sealed class WatchedProject : IDisposable
     {
+        /// <summary>A watcher that ran this long without error resets the consecutive failure count.</summary>
+        private static readonly TimeSpan StableAfter = TimeSpan.FromMinutes(1);
+
         private readonly string _root;
         private readonly ProjectWatcher _owner;
         private readonly Lock _gate = new();
         private readonly Timer _timer;
+        private readonly Timer _retryTimer;
         private FileSystemWatcher? _watcher;
+
+        /// <summary>The watcher being turned on: an error it raises meanwhile means it could not start.</summary>
+        private FileSystemWatcher? _starting;
+        private bool _startFailed;
+        private long _startedAt;
+        private int _failures;
         private bool _gitChanged;
         private bool _treeChanged;
         private long? _firstPendingAt;
@@ -141,16 +162,10 @@ internal sealed class ProjectWatcher : IProjectWatcher
             _root = root;
             _owner = owner;
             _timer = new Timer(static state => ((WatchedProject)state!).Flush(), this, Timeout.Infinite, Timeout.Infinite);
+            _retryTimer = new Timer(static state => ((WatchedProject)state!).Retry(), this, Timeout.Infinite, Timeout.Infinite);
         }
 
-        public bool Start()
-        {
-            lock (_gate)
-            {
-                _watcher = CreateWatcher();
-                return _watcher is not null;
-            }
-        }
+        public bool Start() => StartWatcher();
 
         public void Dispose()
         {
@@ -169,11 +184,14 @@ internal sealed class ProjectWatcher : IProjectWatcher
 
             watcher?.Dispose();
             _timer.Dispose();
+            _retryTimer.Dispose();
         }
 
-        private FileSystemWatcher? CreateWatcher()
+        /// <summary>Creates and turns on a watcher; false (nothing left running) when the folder cannot be watched.</summary>
+        private bool StartWatcher()
         {
             FileSystemWatcher? watcher = null;
+            Exception? failure = null;
             try
             {
                 watcher = new FileSystemWatcher(_root)
@@ -187,16 +205,42 @@ internal sealed class ProjectWatcher : IProjectWatcher
                 watcher.Changed += OnChanged;
                 watcher.Renamed += OnRenamed;
                 watcher.Error += OnError;
-                watcher.EnableRaisingEvents = true;
-                return watcher;
+                lock (_gate)
+                {
+                    _starting = watcher;
+                    _startFailed = false;
+                }
+
+                // An error raised synchronously while starting (the OS refused the watch) only marks the
+                // start as failed: recreating from inside it would recurse without end.
+                _owner.StartWatching(watcher);
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
             {
                 // Missing folder, exhausted OS watch handles, network share without notifications…
-                _owner._logger.LogWarning(ex, "Could not watch {Root} for changes", _root);
-                watcher?.Dispose();
-                return null;
+                failure = ex;
             }
+
+            bool disposed;
+            lock (_gate)
+            {
+                disposed = _disposed;
+                _starting = null;
+                if (failure is null && !_startFailed && !disposed)
+                {
+                    _watcher = watcher;
+                    _startedAt = Environment.TickCount64;
+                    return true;
+                }
+            }
+
+            if (!disposed)
+            {
+                _owner._logger.LogWarning(failure, "Could not watch {Root} for changes", _root);
+            }
+
+            watcher?.Dispose();
+            return false;
         }
 
         private void OnChanged(object sender, FileSystemEventArgs e)
@@ -213,14 +257,8 @@ internal sealed class ProjectWatcher : IProjectWatcher
 
         private void OnError(object sender, ErrorEventArgs e)
         {
-            _owner._logger.LogInformation(e.GetException(), "File watcher for {Root} lost events; refreshing everything", _root);
-            Schedule(git: true, tree: true);
-            Recreate();
-        }
-
-        private void Recreate()
-        {
-            FileSystemWatcher? old;
+            var error = e.GetException();
+            FileSystemWatcher? failed;
             lock (_gate)
             {
                 if (_disposed)
@@ -228,27 +266,88 @@ internal sealed class ProjectWatcher : IProjectWatcher
                     return;
                 }
 
-                old = _watcher;
-                _watcher = null;
+                if (ReferenceEquals(sender, _starting))
+                {
+                    _startFailed = true;
+                    return;
+                }
+
+                if (!ReferenceEquals(sender, _watcher))
+                {
+                    // A watcher already replaced or released: its errors no longer matter.
+                    return;
+                }
+
+                if (error is InternalBufferOverflowException)
+                {
+                    // Events were lost but the watcher keeps running: a full refresh is enough.
+                    failed = null;
+                }
+                else
+                {
+                    failed = _watcher;
+                    _watcher = null;
+                    if (Environment.TickCount64 - _startedAt > StableAfter.TotalMilliseconds)
+                    {
+                        _failures = 0;
+                    }
+                }
             }
 
-            old?.Dispose();
+            Schedule(git: true, tree: true);
+            if (failed is null)
+            {
+                _owner._logger.LogInformation(error, "File watcher for {Root} lost events; refreshing everything", _root);
+                return;
+            }
+
+            failed.Dispose();
+            _owner._logger.LogInformation(error, "File watcher for {Root} failed; refreshing everything", _root);
+            ScheduleRetry();
+        }
+
+        /// <summary>Counts a failure and plans the next attempt (exponential backoff), or gives up.</summary>
+        private void ScheduleRetry()
+        {
+            int failures;
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                failures = ++_failures;
+                if (failures <= _owner.MaxConsecutiveFailures)
+                {
+                    var delay = _owner.RecreateDelay * Math.Pow(2, failures - 1);
+                    _retryTimer.Change(delay, Timeout.InfiniteTimeSpan);
+                    return;
+                }
+            }
+
+            _owner._logger.LogWarning("File watcher for {Root} failed {Count} times in a row; the project is not watched anymore", _root, failures);
+        }
+
+        private void Retry()
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+            }
+
             if (!Directory.Exists(_root))
             {
                 _owner._logger.LogInformation("{Root} no longer exists; it is not watched anymore", _root);
                 return;
             }
 
-            var replacement = CreateWatcher();
-            lock (_gate)
+            if (!StartWatcher())
             {
-                if (_disposed)
-                {
-                    replacement?.Dispose();
-                    return;
-                }
-
-                _watcher = replacement;
+                ScheduleRetry();
             }
         }
 
