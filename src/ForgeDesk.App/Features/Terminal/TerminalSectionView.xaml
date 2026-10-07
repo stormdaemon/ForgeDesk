@@ -1,0 +1,244 @@
+<UserControl x:Class="ForgeDesk.App.Features.Terminal.TerminalSectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Terminal;assembly=ForgeDesk.Presentation"
+             xmlns:core="clr-namespace:ForgeDesk.Core.Terminal;assembly=ForgeDesk.Core"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:TerminalSectionViewModel}"
+             d:DesignHeight="720" d:DesignWidth="1200"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Terminal.View"
+             Focusable="False"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <UserControl.InputBindings>
+    <KeyBinding Key="T" Modifiers="Control+Shift" Command="{Binding NewDefaultSessionCommand}" />
+    <KeyBinding Key="Oem3" Modifiers="Control" Command="{Binding EnsureSessionCommand}" />
+    <KeyBinding Key="W" Modifiers="Control+Shift" Command="{Binding CloseSessionCommand}" />
+    <KeyBinding Key="PageDown" Modifiers="Control" Command="{Binding SelectNextSessionCommand}" />
+    <KeyBinding Key="PageUp" Modifiers="Control" Command="{Binding SelectPreviousSessionCommand}" />
+  </UserControl.InputBindings>
+
+  <UserControl.Resources>
+    <!-- "New ▾": one entry per installed shell. -->
+    <ContextMenu x:Key="ShellMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" ItemsSource="{Binding Shells}">
+      <ContextMenu.ItemContainerStyle>
+        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+          <Setter Property="Header" Value="{Binding Name}" />
+          <Setter Property="ToolTip" Value="{Binding CommandLine}" />
+          <Setter Property="Command" Value="{Binding DataContext.NewSessionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+          <Setter Property="CommandParameter" Value="{Binding}" />
+          <Setter Property="Icon">
+            <Setter.Value>
+              <ui:SymbolIcon Symbol="WindowConsole20" />
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </ContextMenu.ItemContainerStyle>
+    </ContextMenu>
+
+    <!-- "Choose another shell": restarts the selected session with the picked shell. -->
+    <ContextMenu x:Key="ReplaceShellMenu" DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}" ItemsSource="{Binding Shells}">
+      <ContextMenu.ItemContainerStyle>
+        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+          <Setter Property="Header" Value="{Binding Name}" />
+          <Setter Property="ToolTip" Value="{Binding CommandLine}" />
+          <Setter Property="Command" Value="{Binding DataContext.ReplaceShellCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+          <Setter Property="CommandParameter" Value="{Binding}" />
+          <Setter Property="Icon">
+            <Setter.Value>
+              <ui:SymbolIcon Symbol="WindowConsole20" />
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </ContextMenu.ItemContainerStyle>
+    </ContextMenu>
+
+    <!-- A session tab: status dot, title, close button; context menu. -->
+    <DataTemplate x:Key="SessionTabTemplate" DataType="{x:Type vm:TerminalSessionViewModel}">
+      <StackPanel Background="Transparent" Orientation="Horizontal" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+        <StackPanel.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding RestartSessionCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Restart">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowClockwise16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding OpenExternalTerminalCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Open external terminal here">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Open16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CopyWorkingDirectoryCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy folder path">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Copy16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding CloseSessionCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Close" InputGestureText="Ctrl+Shift+W">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Dismiss16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CloseOtherSessionsCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Close others" />
+          </ContextMenu>
+        </StackPanel.ContextMenu>
+        <controls:StatusDot Margin="0,0,8,0" VerticalAlignment="Center" Size="8" Status="{Binding Tone, Converter={StaticResource TerminalToneToKind}}"
+                            ToolTip="{Binding StateText}" />
+        <ui:SymbolIcon Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14" Symbol="WindowConsole20" />
+        <TextBlock MaxWidth="180" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                   Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+        <Button AutomationProperties.Name="Close terminal" Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                CommandParameter="{Binding}" Style="{StaticResource TerminalTabCloseButtonStyle}" ToolTip="Close (Ctrl+Shift+W)">
+          <ui:SymbolIcon FontSize="12" Symbol="Dismiss12" />
+        </Button>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Toolbar: sessions, new, actions (above the terminal: no airspace issue) ===== -->
+    <Grid Grid.Row="0" Margin="16,12,16,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <StackPanel Orientation="Horizontal">
+        <ListBox x:Name="SessionStrip" MaxWidth="900" AutomationProperties.AutomationId="Terminal.SessionTabs" AutomationProperties.Name="Terminals"
+                 ItemTemplate="{StaticResource SessionTabTemplate}" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}"
+                 Style="{StaticResource TerminalSessionStripStyle}" Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.NewButton" AutomationProperties.Name="New terminal" Command="{Binding NewDefaultSessionCommand}"
+                   Icon="{ui:SymbolIcon Add16}" Style="{StaticResource ForgeIconButtonStyle}">
+          <ui:Button.ToolTip>
+            <ToolTip>
+              <TextBlock>
+                <Run Text="New" /> <Run Text="{Binding DefaultShellName, Mode=OneWay}" /> <Run Text="(Ctrl+Shift+T)" />
+              </TextBlock>
+            </ToolTip>
+          </ui:Button.ToolTip>
+        </ui:Button>
+        <ui:Button x:Name="ShellMenuButton" Width="24" MinWidth="24" AutomationProperties.AutomationId="Terminal.ShellMenuButton"
+                   AutomationProperties.Name="Choose a shell" Click="OnShellMenuClick" Icon="{ui:SymbolIcon ChevronDown16}"
+                   Style="{StaticResource ForgeIconButtonStyle}" ToolTip="New terminal with another shell" />
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}">
+        <StackPanel Margin="0,0,12,0" VerticalAlignment="Center" Orientation="Horizontal" ToolTip="{Binding SelectedSession.WorkingDirectory}">
+          <ui:SymbolIcon Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Folder16" />
+          <TextBlock MaxWidth="280" VerticalAlignment="Center" AutomationProperties.AutomationId="Terminal.WorkingDirectory" Style="{StaticResource ForgeMonoSecondary}"
+                     Text="{Binding SelectedSession.DirectoryLabel}" />
+        </StackPanel>
+        <ui:Button AutomationProperties.AutomationId="Terminal.RestartButton" AutomationProperties.Name="Restart terminal" Command="{Binding RestartSessionCommand}"
+                   Icon="{ui:SymbolIcon ArrowClockwise16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Restart the shell" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.ClearButton" AutomationProperties.Name="Clear terminal" Command="{Binding ClearCommand}"
+                   Icon="{ui:SymbolIcon Eraser20}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Clear the screen and scrollback" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.CopyButton" AutomationProperties.Name="Copy selection" Click="OnCopyClick"
+                   Icon="{ui:SymbolIcon Copy16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Copy selection (Ctrl+Shift+C)" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.PasteButton" AutomationProperties.Name="Paste" Click="OnPasteClick"
+                   Icon="{ui:SymbolIcon ClipboardPaste16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Paste (Ctrl+Shift+V)" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.ExternalButton" AutomationProperties.Name="Open external terminal"
+                   Command="{Binding OpenExternalTerminalCommand}" Icon="{ui:SymbolIcon Open16}" Style="{StaticResource ForgeIconButtonStyle}"
+                   ToolTip="Open this folder in an external terminal" />
+        <ui:Button AutomationProperties.AutomationId="Terminal.CloseButton" AutomationProperties.Name="Close terminal" Command="{Binding CloseSessionCommand}"
+                   Icon="{ui:SymbolIcon Dismiss16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Close the terminal (Ctrl+Shift+W)" />
+      </StackPanel>
+    </Grid>
+
+    <!-- ===== Process exited / failed to start (selected session) ===== -->
+    <Border Grid.Row="1" AutomationProperties.AutomationId="Terminal.EndedBar" DataContext="{Binding SelectedSession}" Style="{StaticResource TerminalEndedBarStyle}"
+            Visibility="{Binding IsEnded, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Center" FontSize="18">
+          <ui:SymbolIcon.Style>
+            <Style TargetType="ui:SymbolIcon">
+              <Setter Property="Symbol" Value="Info16" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Tone}" Value="Danger">
+                  <Setter Property="Symbol" Value="ErrorCircle16" />
+                  <Setter Property="Foreground" Value="{DynamicResource ForgeDangerBrush}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </ui:SymbolIcon.Style>
+        </ui:SymbolIcon>
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AutomationId="Terminal.EndedMessage" Style="{StaticResource ForgeBody}"
+                   Text="{Binding EndedMessage}" TextWrapping="Wrap" />
+        <StackPanel Grid.Column="2" Margin="12,0,0,0" Orientation="Horizontal">
+          <ui:Button x:Name="ReplaceShellButton" AutomationProperties.AutomationId="Terminal.ChooseShellButton" Click="OnReplaceShellClick"
+                     Content="Choose another shell" Icon="{ui:SymbolIcon WindowConsole20}" Tag="{Binding DataContext, ElementName=Root}"
+                     Visibility="{Binding HasFailed, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button Margin="8,0,0,0" Appearance="Primary" AutomationProperties.AutomationId="Terminal.RestartEndedButton"
+                     Command="{Binding DataContext.RestartSessionCommand, ElementName=Root}" CommandParameter="{Binding}" Content="Restart"
+                     Icon="{ui:SymbolIcon ArrowClockwise16}" />
+          <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Terminal.CloseEndedButton"
+                     Command="{Binding DataContext.CloseSessionCommand, ElementName=Root}" CommandParameter="{Binding}" Content="Close" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ===== Shell discovery error ===== -->
+    <controls:ErrorPanel Grid.Row="2" Margin="16,0,16,8" Error="{Binding Error}" RetryCommand="{Binding RefreshCommand}" />
+
+    <!-- ===== Terminals (one live control per session, only the selected one visible) ===== -->
+    <Border x:Name="TerminalCard" Grid.Row="3" Margin="16,0,16,16" Padding="10,8,2,6" AutomationProperties.AutomationId="Terminal.Surface"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True"
+            Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}">
+      <Grid x:Name="TerminalStack" />
+    </Border>
+
+    <controls:LoadingState Grid.Row="3" IsActive="{Binding IsDiscovering}" Message="Looking for installed shells…">
+      <controls:LoadingState.Visibility>
+        <MultiBinding Converter="{StaticResource TerminalLoadingVisibility}">
+          <Binding Path="IsDiscovering" />
+          <Binding Path="HasSessions" />
+        </MultiBinding>
+      </controls:LoadingState.Visibility>
+    </controls:LoadingState>
+
+    <!-- ===== No terminal: start one ===== -->
+    <StackPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.AutomationId="Terminal.EmptyState"
+                Visibility="{Binding ShowEmpty, Converter={StaticResource BoolToVisibility}}">
+      <controls:EmptyState ActionCommand="{Binding NewDefaultSessionCommand}" ActionText="{Binding DefaultShellName, StringFormat='Open {0}'}"
+                           Description="{Binding ProjectName, StringFormat='Run a shell in {0}. Terminals keep running while you switch tabs and projects.'}"
+                           Icon="WindowConsole20" SecondaryActionCommand="{Binding OpenExternalTerminalCommand}" SecondaryActionText="Open external terminal"
+                           Title="No terminal open" />
+      <TextBlock Margin="0,0,0,8" HorizontalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="Or start another shell"
+                 Visibility="{Binding Shells.Count, Converter={StaticResource ZeroToCollapsed}}" />
+      <ItemsControl HorizontalAlignment="Center" Focusable="False" ItemsSource="{Binding Shells}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel MaxWidth="560" HorizontalAlignment="Center" Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type core:ShellProfile}">
+            <ui:Button Margin="4" AutomationProperties.Name="{Binding Name}" Command="{Binding DataContext.NewSessionCommand, ElementName=Root}"
+                       CommandParameter="{Binding}" Content="{Binding Name}" Icon="{ui:SymbolIcon WindowConsole20}" ToolTip="{Binding CommandLine}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </Grid>
+</UserControl>
