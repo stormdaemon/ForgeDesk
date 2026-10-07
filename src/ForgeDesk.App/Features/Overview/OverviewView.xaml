@@ -1,0 +1,796 @@
+<UserControl x:Class="ForgeDesk.App.Features.Overview.OverviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:overview="clr-namespace:ForgeDesk.App.Features.Overview"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Overview;assembly=ForgeDesk.Presentation"
+             xmlns:activity="clr-namespace:ForgeDesk.Presentation.Activity;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:OverviewViewModel}"
+             d:DesignWidth="1280" d:DesignHeight="900"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Overview.Root"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- Card-level failure. DataContext: an OverviewCardViewModel. -->
+    <DataTemplate x:Key="CardErrorTemplate" DataType="{x:Type vm:OverviewCardViewModel}">
+      <Border Margin="0,4,0,0" Style="{StaticResource OverviewInlineErrorStyle}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:SymbolIcon Margin="0,1,10,0" VerticalAlignment="Top" FontSize="18" Foreground="{DynamicResource ForgeDangerBrush}" Symbol="ErrorCircle20" />
+          <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding Error.Title}" TextWrapping="Wrap" />
+            <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Error.Message}" TextWrapping="Wrap" />
+          </StackPanel>
+          <ui:Button Grid.Column="2" Height="28" Margin="12,0,0,0" Padding="10,0" VerticalAlignment="Center" Command="{Binding LoadCommand}"
+                     Content="Retry" Icon="{ui:SymbolIcon ArrowClockwise16}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <!-- Relative time that stays current. -->
+    <Style x:Key="RelativeTimeStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="None" />
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <!-- ===== Missing folder ===== -->
+    <controls:EmptyState AutomationProperties.AutomationId="Overview.FolderMissing" ActionCommand="{Binding LocateFolderCommand}" ActionText="Locate folder…"
+                         Description="The project folder was moved, renamed or deleted, or its drive is disconnected. Point ForgeDesk to its new location to see the overview again."
+                         Icon="FolderSearch24" Title="Folder not found"
+                         Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}" />
+
+    <ScrollViewer x:Name="Scroller" AutomationProperties.AutomationId="Overview.Scroller" Focusable="False" HorizontalScrollBarVisibility="Disabled"
+                  PanningMode="VerticalOnly" VerticalScrollBarVisibility="Auto"
+                  Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel MaxWidth="1480" Margin="24,20,24,24">
+
+        <!-- ===== Hero ===== -->
+        <Grid x:Name="HeroPanel" Margin="0,0,0,20" AutomationProperties.AutomationId="Overview.Hero" DataContext="{Binding Hero}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <StackPanel Margin="0,0,32,0">
+            <TextBlock MaxWidth="820" HorizontalAlignment="Left" AutomationProperties.AutomationId="Overview.Description" FontSize="14"
+                       LineHeight="21" Style="{StaticResource ForgeBody}" Text="{Binding Description}" TextTrimming="None" TextWrapping="Wrap"
+                       Visibility="{Binding HasDescription, Converter={StaticResource BoolToVisibility}}" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding HasDescription, Converter={StaticResource InverseBoolToVisibility}}">
+              <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="No description yet. A README that says what the project does and how to run it helps everyone, including you in six months." TextWrapping="Wrap" MaxWidth="560" />
+            </StackPanel>
+
+            <WrapPanel Margin="-6,10,0,0" Orientation="Horizontal">
+              <Button AutomationProperties.AutomationId="Overview.PathButton" AutomationProperties.Name="Open the project folder in Explorer"
+                      Command="{Binding OpenFolderCommand}" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open in Explorer">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="FolderOpen16" />
+                  <TextBlock Margin="6,0,0,0" MaxWidth="460" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Path}" />
+                </StackPanel>
+              </Button>
+              <Button Margin="4,0,0,0" AutomationProperties.AutomationId="Overview.GitHubButton" AutomationProperties.Name="Open the repository on GitHub"
+                      Command="{Binding OpenGitHubCommand}" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="{Binding GitHubUrl}"
+                      Visibility="{Binding HasGitHub, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon FontSize="14" Symbol="Globe16" />
+                  <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding GitHubName}" />
+                  <ui:SymbolIcon Margin="4,0,0,0" FontSize="12" Symbol="Open16" />
+                </StackPanel>
+              </Button>
+              <Button Margin="4,0,0,0" AutomationProperties.AutomationId="Overview.ReadmeButton" Command="{Binding OpenReadmeCommand}"
+                      Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the README in Files"
+                      Visibility="{Binding ReadmePath, Converter={StaticResource NullToCollapsed}}">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon FontSize="14" Symbol="DocumentText20" />
+                  <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding ReadmePath}" />
+                </StackPanel>
+              </Button>
+            </WrapPanel>
+
+            <ItemsControl Margin="0,10,0,0" AutomationProperties.AutomationId="Overview.Technologies" Focusable="False"
+                          ItemsSource="{Binding Technologies}" Visibility="{Binding HasTechnologies, Converter={StaticResource BoolToVisibility}}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <controls:Pill Margin="0,0,6,6" Text="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <!-- Languages -->
+          <StackPanel Grid.Column="1" Width="320" VerticalAlignment="Top" AutomationProperties.AutomationId="Overview.LanguageBar"
+                      Visibility="{Binding HasLanguages, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Languages" />
+            <ItemsControl Height="8" Margin="0,8,0,0" Focusable="False" ItemsSource="{Binding Languages}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <overview:ProportionalPanel Spacing="2" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemContainerStyle>
+                <Style TargetType="ContentPresenter">
+                  <Setter Property="overview:ProportionalPanel.Weight" Value="{Binding Percentage}" />
+                </Style>
+              </ItemsControl.ItemContainerStyle>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:LanguageSegmentViewModel}">
+                  <Border Background="{Binding Color}" CornerRadius="2" ToolTip="{Binding ToolTip}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl Margin="0,10,0,0" Focusable="False" ItemsSource="{Binding Languages}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:LanguageSegmentViewModel}">
+                  <StackPanel Margin="0,0,14,6" Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{Binding Color}" />
+                    <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" Text="{Binding Name}" />
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding PercentText}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Grid>
+
+        <!-- ===== Card grid (two columns, one below ~1100 px; see code-behind) ===== -->
+        <Grid x:Name="CardGrid">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="LeftColumnDefinition" Width="7*" />
+            <ColumnDefinition x:Name="GapColumnDefinition" Width="12" />
+            <ColumnDefinition x:Name="RightColumnDefinition" Width="5*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- ================= Left column ================= -->
+          <StackPanel x:Name="LeftColumn">
+
+            <!-- ===== Working tree ===== -->
+            <Border AutomationProperties.AutomationId="Overview.WorkingTreeCard" DataContext="{Binding WorkingTree}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="BranchFork20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Working tree" />
+                  <ui:Button Grid.Column="2" Height="30" Padding="12,0" AutomationProperties.AutomationId="Overview.ReviewChangesButton"
+                             Command="{Binding ReviewChangesCommand}" Content="{Binding ReviewText}" Icon="{ui:SymbolIcon BranchFork16}"
+                             ToolTip="Open the Git tab" Visibility="{Binding IsRepository, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="2" RowHeight="28" Visibility="{Binding IsChecking, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Not a repository -->
+                <Border Style="{StaticResource OverviewHintStyle}" Visibility="{Binding IsNotRepository, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ui:SymbolIcon Margin="0,2,12,0" VerticalAlignment="Top" FontSize="20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Symbol="BranchFork20" />
+                    <StackPanel Grid.Column="1">
+                      <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="Not a Git repository" />
+                      <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                                 Text="Initialize a repository to track changes, commit and sync with GitHub." />
+                    </StackPanel>
+                    <ui:Button Grid.Column="2" Height="30" Margin="12,0,0,0" Padding="12,0" VerticalAlignment="Center" Appearance="Primary"
+                               AutomationProperties.AutomationId="Overview.InitRepositoryButton" Command="{Binding OpenGitCommand}"
+                               Content="Initialize repository" ToolTip="Open the Git tab to initialize a repository" />
+                  </Grid>
+                </Border>
+
+                <!-- Git could not be read -->
+                <Border Style="{StaticResource OverviewInlineErrorStyle}" Visibility="{Binding HasGitError, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel>
+                    <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding GitError.Title}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding GitError.Message}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding GitError.Hint}" TextWrapping="Wrap"
+                               Visibility="{Binding GitError.Hint, Converter={StaticResource NullToCollapsed}}" />
+                  </StackPanel>
+                </Border>
+
+                <!-- Repository state -->
+                <StackPanel Visibility="{Binding IsRepository, Converter={StaticResource BoolToVisibility}}">
+                  <WrapPanel Orientation="Horizontal">
+                    <StackPanel Margin="0,0,16,6" Orientation="Horizontal" ToolTip="Current branch">
+                      <ui:SymbolIcon Style="{StaticResource OverviewMetaIconStyle}" Symbol="BranchFork16" />
+                      <TextBlock Margin="6,0,0,0" MaxWidth="280" VerticalAlignment="Center" FontFamily="{DynamicResource ForgeMonoFont}" FontSize="13"
+                                 FontWeight="SemiBold" Style="{StaticResource ForgeTextBase}" Text="{Binding BranchText}" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,16,6" Orientation="Horizontal" ToolTip="Upstream branch">
+                      <ui:SymbolIcon Style="{StaticResource OverviewMetaIconStyle}" Symbol="ArrowSync16" />
+                      <TextBlock Margin="6,0,0,0" MaxWidth="260" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding UpstreamText}" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,6" Orientation="Horizontal" ToolTip="Commits not pushed yet"
+                                Visibility="{Binding Ahead, Converter={StaticResource ZeroToCollapsed}}">
+                      <ui:SymbolIcon FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource ForgeInfoBrush}" Symbol="ArrowUp16" />
+                      <TextBlock Margin="2,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}">
+                        <Run Text="{Binding Ahead, Mode=OneWay}" /><Run Text=" to push" />
+                      </TextBlock>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,6" Orientation="Horizontal" ToolTip="Commits on the remote you do not have yet"
+                                Visibility="{Binding Behind, Converter={StaticResource ZeroToCollapsed}}">
+                      <ui:SymbolIcon FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="ArrowDown16" />
+                      <TextBlock Margin="2,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}">
+                        <Run Text="{Binding Behind, Mode=OneWay}" /><Run Text=" to pull" />
+                      </TextBlock>
+                    </StackPanel>
+                    <controls:Pill Margin="0,0,0,6" Kind="Warning" Text="{Binding OperationText}"
+                                   Visibility="{Binding OperationText, Converter={StaticResource NullToCollapsed}}" />
+                  </WrapPanel>
+
+                  <StackPanel Margin="0,6,0,12" Orientation="Horizontal">
+                    <controls:StatusDot VerticalAlignment="Center" Status="{Binding Tone, Converter={StaticResource OverviewToneToKind}}" />
+                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Summary}" />
+                  </StackPanel>
+
+                  <WrapPanel Margin="0,0,-8,-8" Orientation="Horizontal">
+                    <Border Style="{StaticResource OverviewStatTileStyle}" ToolTip="Changes ready to commit">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Staged}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Staged" />
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource OverviewStatTileStyle}" ToolTip="Modified files not staged yet">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Changed}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Changed" />
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource OverviewStatTileStyle}" ToolTip="New files Git does not track yet">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Untracked}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Untracked" />
+                      </StackPanel>
+                    </Border>
+                    <Border ToolTip="Files with merge conflicts to resolve">
+                      <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource OverviewStatTileStyle}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasConflicts}" Value="True">
+                              <Setter Property="Background" Value="{DynamicResource ForgeDangerSubtleBrush}" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Conflicts}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Conflicts" />
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource OverviewStatTileStyle}" ToolTip="Stashed change sets"
+                            Visibility="{Binding Stashes, Converter={StaticResource ZeroToCollapsed}}">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Stashes}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Stashes" />
+                      </StackPanel>
+                    </Border>
+                  </WrapPanel>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Recent commits ===== -->
+            <Border AutomationProperties.AutomationId="Overview.CommitsCard" DataContext="{Binding Commits}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="History20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Recent commits" />
+                  <Button Grid.Column="2" AutomationProperties.AutomationId="Overview.ViewHistoryButton" Command="{Binding OpenHistoryCommand}"
+                          Content="View history" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the history in the Git tab"
+                          Visibility="{Binding IsRepository, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="4" RowHeight="40" ShowIcons="True" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Margin="0,4,0,4" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="No history: this folder is not a Git repository yet."
+                           Visibility="{Binding ShowNotRepository, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Margin="0,4,0,4" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="No commits yet. Stage your files in the Git tab and make the first commit."
+                           Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Overview.CommitList" Focusable="False" ItemsSource="{Binding Commits}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:OverviewCommitViewModel}">
+                      <Button AutomationProperties.AutomationId="Overview.CommitRow" AutomationProperties.Name="{Binding Subject}"
+                              Command="{Binding DataContext.OpenCommitCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}" Style="{StaticResource OverviewRowButtonStyle}"
+                              Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}" ToolTip="{Binding ToolTip}">
+                        <Button.ContextMenu>
+                          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Command="{Binding OpenCommitCommand}" FontWeight="SemiBold" Header="Show in history"
+                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="History20" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Command="{Binding CopyShaCommand}" Header="Copy SHA"
+                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="Copy16" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                          </ContextMenu>
+                        </Button.ContextMenu>
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <controls:ProjectAvatar VerticalAlignment="Center" ProjectName="{Binding Author}" Size="28" />
+                          <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Subject}" />
+                            <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeCaptionSecondary}">
+                              <Run Text="{Binding Author, Mode=OneWay}" /><Run Text=" · " /><Run>
+                                <Run.Text>
+                                  <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                                    <Binding Path="When" />
+                                    <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                                  </MultiBinding>
+                                </Run.Text>
+                              </Run>
+                            </TextBlock>
+                          </StackPanel>
+                          <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding ShortSha}" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Recent activity ===== -->
+            <Border AutomationProperties.AutomationId="Overview.ActivityCard" DataContext="{Binding Activity}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Pulse20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Recent activity" />
+                  <Button Grid.Column="2" AutomationProperties.AutomationId="Overview.ViewAllActivityButton" Command="{Binding ViewAllCommand}"
+                          Content="View all" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the Activity tab" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="4" RowHeight="36" ShowIcons="True" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Margin="0,4,0,4" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="Nothing recorded yet. Commits, pushes, command runs, releases and tasks done in ForgeDesk show up here."
+                           Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Overview.ActivityList" Focusable="False" ItemsSource="{Binding Entries}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type activity:ActivityItemViewModel}">
+                      <Button AutomationProperties.AutomationId="Overview.ActivityRow" AutomationProperties.Name="{Binding Title}"
+                              Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                              IsEnabled="{Binding CanFollow}" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ToolTip}"
+                              ToolTipService.ShowOnDisabled="True">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <Border Width="28" Height="28" VerticalAlignment="Center" CornerRadius="14"
+                                  Background="{Binding Tone, Converter={StaticResource OverviewToneToBrush}, ConverterParameter=Subtle}">
+                            <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"
+                                           Foreground="{Binding Tone, Converter={StaticResource OverviewToneToBrush}}"
+                                           Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}, ConverterParameter=History20}" />
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Title}" />
+                            <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Detail}"
+                                       Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
+                          </StackPanel>
+                          <TextBlock Grid.Column="2" Style="{StaticResource RelativeTimeStyle}">
+                            <TextBlock.Text>
+                              <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                                <Binding Path="At" />
+                                <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                              </MultiBinding>
+                            </TextBlock.Text>
+                          </TextBlock>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- ================= Right column ================= -->
+          <StackPanel x:Name="RightColumn" Grid.Column="2">
+
+            <!-- ===== Needs attention ===== -->
+            <Border AutomationProperties.AutomationId="Overview.AttentionCard" DataContext="{Binding Attention}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Alert20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Needs attention" />
+                  <Border Grid.Column="2" Style="{StaticResource ForgeCountBadgeStyle}" Visibility="{Binding Items.Count, Converter={StaticResource ZeroToCollapsed}}">
+                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Items.Count}" />
+                  </Border>
+                </Grid>
+
+                <controls:SkeletonList RowCount="2" RowHeight="32" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+
+                <StackPanel Margin="0,4,0,4" Orientation="Horizontal" Visibility="{Binding IsHealthy, Converter={StaticResource BoolToVisibility}}">
+                  <ui:SymbolIcon FontSize="18" Foreground="{DynamicResource ForgeSuccessBrush}" Symbol="CheckmarkCircle20" />
+                  <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="Nothing needs your attention." />
+                </StackPanel>
+
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Overview.AttentionList" Focusable="False" ItemsSource="{Binding Items}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:AttentionItemViewModel}">
+                      <Button AutomationProperties.AutomationId="Overview.AttentionRow" AutomationProperties.Name="{Binding Message}"
+                              Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                              IsEnabled="{Binding CanOpen}" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ActionText}">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <controls:StatusDot Margin="2,5,10,0" VerticalAlignment="Top" Status="{Binding Tone, Converter={StaticResource OverviewToneToKind}}" />
+                          <TextBlock Grid.Column="1" Style="{StaticResource ForgeBody}" Text="{Binding Message}" TextTrimming="None" TextWrapping="Wrap" />
+                          <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top" Orientation="Horizontal"
+                                      Visibility="{Binding CanOpen, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ActionText}" />
+                            <ui:SymbolIcon Margin="4,0,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="ChevronRight12" />
+                          </StackPanel>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Commands ===== -->
+            <Border AutomationProperties.AutomationId="Overview.CommandsCard" DataContext="{Binding Commands}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Play20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Commands" />
+                  <Button Grid.Column="2" AutomationProperties.AutomationId="Overview.AllCommandsButton" Command="{Binding OpenCommandsCommand}"
+                          Content="{Binding AllCommandsText}" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the Commands tab" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="3" RowHeight="44" ShowIcons="True" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+
+                <Border Style="{StaticResource OverviewHintStyle}" Visibility="{Binding ShowNoCommands, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="No dev, build, test or lint command detected" TextWrapping="Wrap" />
+                      <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                                 Text="Add your own commands in the Commands tab to run them in one click." />
+                    </StackPanel>
+                    <ui:Button Grid.Column="1" Height="30" Margin="12,0,0,0" Padding="12,0" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="Overview.OpenCommandsButton" Command="{Binding OpenCommandsCommand}" Content="Open Commands" />
+                  </Grid>
+                </Border>
+
+                <ItemsControl AutomationProperties.AutomationId="Overview.CommandList" Focusable="False" ItemsSource="{Binding Commands}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:OverviewCommandViewModel}">
+                      <Grid Margin="0,4,0,4">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="32" Height="32" VerticalAlignment="Center" Background="{DynamicResource ForgeAccentSubtleBrush}" CornerRadius="6">
+                          <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" Foreground="{DynamicResource ForgeAccentTextBrush}"
+                                         Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}, ConverterParameter=Play20}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding CategoryLabel}" />
+                            <TextBlock Margin="8,0,0,0" MaxWidth="260" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding CommandLine}"
+                                       ToolTip="{Binding ToolTip}" />
+                          </StackPanel>
+                          <Button Margin="-6,0,0,0" HorizontalAlignment="Left" Padding="6,2"
+                                  Command="{Binding DataContext.ShowRunCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                  Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Show this run in the Commands tab"
+                                  Visibility="{Binding HasLastRun, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                              <controls:StatusDot Size="7" VerticalAlignment="Center" Status="{Binding LastTone, Converter={StaticResource OverviewToneToKind}}" />
+                              <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12"
+                                         Text="{Binding LastRunText}" />
+                              <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12"
+                                         Visibility="{Binding LastRun, Converter={StaticResource NullToCollapsed}}">
+                                <Run Text="·" />
+                                <Run>
+                                  <Run.Text>
+                                    <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                                      <Binding Path="LastRun.StartedAt" />
+                                      <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                                    </MultiBinding>
+                                  </Run.Text>
+                                </Run>
+                              </TextBlock>
+                            </StackPanel>
+                          </Button>
+                          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="Never run"
+                                     Visibility="{Binding HasLastRun, Converter={StaticResource InverseBoolToVisibility}}" />
+                        </StackPanel>
+                        <ui:Button Grid.Column="2" Height="30" MinWidth="76" Padding="10,0" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="Overview.RunCommandButton" AutomationProperties.Name="{Binding ToolTip}"
+                                   Command="{Binding DataContext.StartCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource OverviewInverseBoolean}}" ToolTip="{Binding ToolTip}">
+                          <StackPanel Orientation="Horizontal">
+                            <Grid Width="14" VerticalAlignment="Center">
+                              <ui:SymbolIcon FontSize="14" Symbol="Play16" Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVisibility}}" />
+                              <ui:ProgressRing Width="12" Height="12" IsIndeterminate="True" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
+                            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="Run" />
+                          </StackPanel>
+                        </ui:Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Continuous integration ===== -->
+            <Border AutomationProperties.AutomationId="Overview.CiCard" DataContext="{Binding Ci}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Flow20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Continuous integration" />
+                  <controls:CiBadge Grid.Column="2" Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.AutomationId="Overview.CiBadge"
+                                    State="{Binding State}" Visibility="{Binding ShowRuns, Converter={StaticResource BoolToVisibility}}" />
+                  <Button Grid.Column="3" AutomationProperties.AutomationId="Overview.OpenGitHubTabButton" Command="{Binding OpenGitHubTabCommand}"
+                          Content="GitHub" Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the GitHub tab"
+                          Visibility="{Binding ShowRuns, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="3" RowHeight="36" ShowIcons="True" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Hint: not linked, signed out, no runs, unavailable -->
+                <Border Style="{StaticResource OverviewHintStyle}" Visibility="{Binding HasHint, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ui:SymbolIcon Margin="0,2,12,0" VerticalAlignment="Top" FontSize="20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Symbol="{Binding HintIcon, Converter={StaticResource SymbolFromName}, ConverterParameter=Globe20}" />
+                    <StackPanel Grid.Column="1">
+                      <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding HintTitle}" />
+                      <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding HintText}" TextTrimming="None" TextWrapping="Wrap" />
+                      <ui:Button Height="30" Margin="0,10,0,0" Padding="12,0" HorizontalAlignment="Left" AutomationProperties.AutomationId="Overview.CiHintButton"
+                                 Command="{Binding HintActionCommand}" Content="{Binding HintActionText}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+
+                <StackPanel Visibility="{Binding ShowRuns, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Margin="0,0,0,6" Style="{StaticResource ForgeCaptionSecondary}">
+                    <Run Text="{Binding RepositoryName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Branch, Mode=OneWay, TargetNullValue='default branch'}" />
+                  </TextBlock>
+                  <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Overview.RunList" Focusable="False" ItemsSource="{Binding Runs}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:OverviewWorkflowRunViewModel}">
+                        <Button AutomationProperties.AutomationId="Overview.WorkflowRunRow" AutomationProperties.Name="{Binding Name}"
+                                Command="{Binding DataContext.OpenRunCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ToolTip}">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="Auto" />
+                              <ColumnDefinition Width="*" />
+                              <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <controls:CiBadge VerticalAlignment="Center" ShowLabel="False" State="{Binding State}" />
+                            <StackPanel Grid.Column="1" Margin="10,0,12,0" VerticalAlignment="Center">
+                              <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+                              <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Subtitle}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                              <TextBlock HorizontalAlignment="Right" Style="{StaticResource RelativeTimeStyle}">
+                                <TextBlock.Text>
+                                  <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                                    <Binding Path="At" />
+                                    <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                                  </MultiBinding>
+                                </TextBlock.Text>
+                              </TextBlock>
+                              <TextBlock HorizontalAlignment="Right" Style="{StaticResource RelativeTimeStyle}" Text="{Binding DurationText}"
+                                         Visibility="{Binding HasDuration, Converter={StaticResource BoolToVisibility}}" />
+                            </StackPanel>
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Margin="0,6,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Message}" TextWrapping="Wrap"
+                             Visibility="{Binding Message, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Tasks ===== -->
+            <Border AutomationProperties.AutomationId="Overview.TasksCard" DataContext="{Binding Tasks}" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="TaskListSquareLtr20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Tasks" />
+                  <Button Grid.Column="2" AutomationProperties.AutomationId="Overview.NewTaskButton" Command="{Binding NewTaskCommand}"
+                          Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Create a task">
+                    <StackPanel Orientation="Horizontal">
+                      <ui:SymbolIcon FontSize="14" Symbol="Add16" />
+                      <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="New task" />
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="3" AutomationProperties.AutomationId="Overview.AllTasksButton" Command="{Binding OpenTasksCommand}" Content="All tasks"
+                          Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the Tasks tab" />
+                </Grid>
+
+                <controls:SkeletonList RowCount="3" RowHeight="32" Visibility="{Binding ShowSkeleton, Converter={StaticResource BoolToVisibility}}" />
+                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource CardErrorTemplate}"
+                                  Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+
+                <Border Style="{StaticResource OverviewHintStyle}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="No tasks yet" />
+                      <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                                 Text="Keep track of what is next for this project, right next to the code." />
+                    </StackPanel>
+                    <ui:Button Grid.Column="1" Height="30" Margin="12,0,0,0" Padding="12,0" VerticalAlignment="Center" Appearance="Primary"
+                               AutomationProperties.AutomationId="Overview.CreateFirstTaskButton" Command="{Binding NewTaskCommand}" Content="Create a task" />
+                  </Grid>
+                </Border>
+
+                <StackPanel Margin="0,4,0,4" Orientation="Horizontal" Visibility="{Binding IsAllDone, Converter={StaticResource BoolToVisibility}}">
+                  <ui:SymbolIcon FontSize="18" Foreground="{DynamicResource ForgeSuccessBrush}" Symbol="CheckmarkCircle20" />
+                  <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}">
+                    <Run Text="All done —" /> <Run Text="{Binding DoneCount, Mode=OneWay}" /> <Run Text="completed tasks." />
+                  </TextBlock>
+                </StackPanel>
+
+                <!-- Counts per status -->
+                <ItemsControl Margin="0,0,0,4" Focusable="False" ItemsSource="{Binding StatusCounts}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:OverviewTaskStatusCount}">
+                      <Border Margin="0,0,8,8" Padding="10,4" Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Label}" />
+                          <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Style="{StaticResource ForgeCaption}" Text="{Binding Count}" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Overview.TaskList" Focusable="False" ItemsSource="{Binding TopTasks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:OverviewTaskViewModel}">
+                      <Button AutomationProperties.AutomationId="Overview.TaskRow" AutomationProperties.Name="{Binding Title}"
+                              Command="{Binding DataContext.OpenTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                              Style="{StaticResource OverviewRowButtonStyle}" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              ToolTip="{Binding ToolTip}">
+                        <Button.ContextMenu>
+                          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Command="{Binding OpenTaskCommand}" FontWeight="SemiBold" Header="Open task"
+                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="Open16" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Command="{Binding NewTaskCommand}" Header="New task…">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="Add16" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                          </ContextMenu>
+                        </Button.ContextMenu>
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="44" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Key}" />
+                          <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Title}" />
+                            <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding StatusLabel}" />
+                          </StackPanel>
+                          <controls:Pill Grid.Column="2" Kind="{Binding PriorityTone, Converter={StaticResource OverviewToneToKind}}" Text="{Binding PriorityLabel}"
+                                         Visibility="{Binding HasPriority, Converter={StaticResource BoolToVisibility}}" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

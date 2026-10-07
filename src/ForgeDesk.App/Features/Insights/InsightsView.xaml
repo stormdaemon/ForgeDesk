@@ -1,0 +1,777 @@
+<UserControl x:Class="ForgeDesk.App.Features.Insights.InsightsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Insights;assembly=ForgeDesk.Presentation"
+             xmlns:ovm="clr-namespace:ForgeDesk.Presentation.Overview;assembly=ForgeDesk.Presentation"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:InsightsViewModel}"
+             d:DesignWidth="1280" d:DesignHeight="1200"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Insights.Root"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- Dependencies list: manifest header and package rows. -->
+    <DataTemplate DataType="{x:Type vm:InsightsDependencyGroupViewModel}">
+      <Grid Margin="8,10,8,4">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <controls:Pill Kind="Info" Text="{Binding Ecosystem}" />
+        <TextBlock Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding Manifest}" />
+        <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding CountText}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:InsightsDependencyViewModel}">
+      <Grid MinHeight="28" Margin="8,0,8,0" Background="Transparent" ToolTip="{Binding ToolTip}"
+            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding CopyTextCommand}" Header="Copy name"
+                      CommandParameter="{Binding PlacementTarget.DataContext.Name, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Copy16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding OpenFileCommand}" Header="Open manifest"
+                      CommandParameter="{Binding PlacementTarget.DataContext.Manifest, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="DocumentText20" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Margin="12,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+        <controls:Pill Grid.Column="1" Margin="0,0,8,0" Text="dev" Visibility="{Binding IsDevelopment, Converter={StaticResource BoolToVisibility}}" />
+        <TextBlock Grid.Column="2" MinWidth="72" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Version}"
+                   TextAlignment="Right" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <!-- ===== Missing folder ===== -->
+    <controls:EmptyState AutomationProperties.AutomationId="Insights.FolderMissing" ActionCommand="{Binding RecheckFolderCommand}" ActionText="Check again"
+                         Description="The project folder was moved, renamed or deleted. Locate it from the banner above, then check again to analyze it."
+                         Icon="FolderSearch24" Title="Folder not found"
+                         Visibility="{Binding IsFolderMissing, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== Reading the cached report ===== -->
+    <controls:LoadingState AutomationProperties.AutomationId="Insights.Loading" IsActive="{Binding ShowLoading}" Message="Loading the last analysis…"
+                           Visibility="{Binding ShowLoading, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== First analysis (no cached report) ===== -->
+    <StackPanel MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.AutomationId="Insights.FirstAnalysis"
+                Visibility="{Binding ShowFirstAnalysis, Converter={StaticResource BoolToVisibility}}">
+      <ui:ProgressRing Width="40" Height="40" HorizontalAlignment="Center" IsIndeterminate="True" />
+      <TextBlock Margin="0,20,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeSubtitle}" Text="Analyzing the project" />
+      <TextBlock Margin="0,6,0,0" HorizontalAlignment="Center" AutomationProperties.AutomationId="Insights.ProgressText" Style="{StaticResource ForgeBodySecondary}"
+                 Text="{Binding ProgressText}" TextAlignment="Center" TextWrapping="Wrap" />
+      <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" TextAlignment="Center" TextWrapping="Wrap"
+                 Text="ForgeDesk scans the files, dependencies and Git history. Large projects can take a minute." />
+      <ui:Button Margin="0,20,0,0" HorizontalAlignment="Center" AutomationProperties.AutomationId="Insights.CancelFirstButton"
+                 Command="{Binding CancelAnalysisCommand}" Content="Cancel" Icon="{ui:SymbolIcon Dismiss16}" />
+    </StackPanel>
+
+    <!-- ===== Failed ===== -->
+    <controls:ErrorPanel Margin="24" VerticalAlignment="Top" AutomationProperties.AutomationId="Insights.Error" Error="{Binding Error}"
+                         RetryCommand="{Binding AnalyzeCommand}" RetryText="Analyze again"
+                         Visibility="{Binding ShowError, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== Not analyzed (cancelled before the first report) ===== -->
+    <controls:EmptyState AutomationProperties.AutomationId="Insights.NotAnalyzed" ActionCommand="{Binding AnalyzeCommand}" ActionText="Analyze"
+                         Description="Scan the project to see its health score, what needs attention, its dependencies, TODOs, large files and Git activity."
+                         Icon="DataTrending24" Title="Not analyzed yet"
+                         Visibility="{Binding ShowNotAnalyzed, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== Report ===== -->
+    <ScrollViewer AutomationProperties.AutomationId="Insights.Report" Focusable="False" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly"
+                  VerticalScrollBarVisibility="Auto" Visibility="{Binding ShowReport, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel MaxWidth="1480" Margin="24,20,24,24">
+
+        <!-- ===== Header: score, freshness, analyze ===== -->
+        <Grid Margin="0,0,0,16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <Grid Width="72" Height="72" AutomationProperties.AutomationId="Insights.ScoreGauge" AutomationProperties.Name="{Binding ScoreLabel}"
+                ToolTip="Health score out of 100: a synthesis of the checks below.">
+            <Ellipse Stroke="{DynamicResource SubtleFillColorTertiaryBrush}" StrokeThickness="7" />
+            <Path Width="72" Height="72" Data="{Binding ScoreFraction, Converter={StaticResource OverviewArc}, ConverterParameter='72,7'}"
+                  Stroke="{Binding ScoreTone, Converter={StaticResource OverviewToneToBrush}}" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                  StrokeThickness="7" />
+            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" AutomationProperties.AutomationId="Insights.Score" FontSize="22"
+                       Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Score}" />
+          </Grid>
+
+          <StackPanel Grid.Column="1" Margin="16,0,16,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource ForgeTitle}" Text="Project health" />
+              <controls:Pill Margin="10,0,0,0" Kind="{Binding ScoreTone, Converter={StaticResource OverviewToneToKind}}" Text="{Binding ScoreLabel}" />
+            </StackPanel>
+            <TextBlock Margin="0,4,0,0" AutomationProperties.AutomationId="Insights.GeneratedAt" Style="{StaticResource ForgeBodySecondary}">
+              <Run Text="Generated" />
+              <Run>
+                <Run.Text>
+                  <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                    <Binding Path="GeneratedAt" />
+                    <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                  </MultiBinding>
+                </Run.Text>
+              </Run>
+              <Run Text="·" />
+              <Run Text="{Binding SummaryText, Mode=OneWay}" />
+            </TextBlock>
+          </StackPanel>
+
+          <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+            <StackPanel Margin="0,0,12,0" VerticalAlignment="Center" Orientation="Horizontal"
+                        Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVisibility}}">
+              <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" />
+              <TextBlock MaxWidth="280" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ProgressText}" />
+              <ui:Button Height="32" Margin="12,0,0,0" AutomationProperties.AutomationId="Insights.CancelButton" Command="{Binding CancelAnalysisCommand}"
+                         Content="Cancel" ToolTip="Stop the analysis (the current report stays)" />
+            </StackPanel>
+            <ui:Button Height="32" Appearance="Primary" AutomationProperties.AutomationId="Insights.AnalyzeButton" Command="{Binding AnalyzeCommand}"
+                       Content="{Binding AnalyzeText}" Icon="{ui:SymbolIcon ArrowClockwise16}" ToolTip="Scan the project again (F5)" />
+          </StackPanel>
+        </Grid>
+
+        <!-- ===== Needs attention ===== -->
+        <Border AutomationProperties.AutomationId="Insights.AttentionCard" Style="{StaticResource OverviewCardStyle}"
+                Visibility="{Binding HasAttention, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel>
+            <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+              <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Alert20" />
+              <TextBlock Style="{StaticResource OverviewCardTitleStyle}" Text="Needs attention" />
+              <Border Margin="8,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}">
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Attention.Count}" />
+              </Border>
+            </StackPanel>
+            <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Insights.AttentionList" Focusable="False" ItemsSource="{Binding Attention}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type ovm:AttentionItemViewModel}">
+                  <Button AutomationProperties.AutomationId="Insights.AttentionRow" AutomationProperties.Name="{Binding Message}"
+                          Command="{Binding DataContext.OpenAttentionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                          IsEnabled="{Binding CanOpen}" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ActionText}">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <controls:StatusDot Margin="2,0,10,0" VerticalAlignment="Center" Status="{Binding Tone, Converter={StaticResource OverviewToneToKind}}" />
+                      <TextBlock Grid.Column="1" Width="64" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding LevelText}" />
+                      <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Message}" TextTrimming="None"
+                                 TextWrapping="Wrap" />
+                      <StackPanel Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center" Orientation="Horizontal"
+                                  Visibility="{Binding CanOpen, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ActionText}" />
+                        <ui:SymbolIcon Margin="4,0,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="ChevronRight12" />
+                      </StackPanel>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- ===== Cards (two columns, one below ~1100 px; see code-behind) ===== -->
+        <Grid x:Name="CardGrid">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition x:Name="GapColumnDefinition" Width="12" />
+            <ColumnDefinition x:Name="RightColumnDefinition" Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- ================= Left column ================= -->
+          <StackPanel x:Name="LeftColumn">
+
+            <!-- ===== Codebase ===== -->
+            <Border AutomationProperties.AutomationId="Insights.CodebaseCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Code20" />
+                  <TextBlock Style="{StaticResource OverviewCardTitleStyle}" Text="Codebase" />
+                </StackPanel>
+
+                <WrapPanel Margin="0,0,-8,4" Orientation="Horizontal">
+                  <Border Style="{StaticResource OverviewStatTileStyle}">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding FilesText}" />
+                      <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Files" />
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource OverviewStatTileStyle}">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding LinesText}" />
+                      <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Lines of code" />
+                    </StackPanel>
+                  </Border>
+                  <Border Style="{StaticResource OverviewStatTileStyle}">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding SizeText}" />
+                      <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Total size" />
+                    </StackPanel>
+                  </Border>
+                </WrapPanel>
+
+                <Border Margin="0,0,0,8" Background="{DynamicResource ForgeWarningSubtleBrush}" CornerRadius="6" Padding="12,8"
+                        Visibility="{Binding ScanTruncated, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon FontSize="16" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="Warning16" />
+                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaption}" TextWrapping="Wrap"
+                               Text="This project is very large: the scan stopped early, so the numbers below are partial." />
+                  </StackPanel>
+                </Border>
+
+                <!-- Languages table -->
+                <Grid Margin="0,4,0,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="72" />
+                    <ColumnDefinition Width="88" />
+                    <ColumnDefinition Width="2*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource InsightsColumnHeaderStyle}" Text="Language" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource InsightsColumnHeaderStyle}" Text="Files" TextAlignment="Right" />
+                  <TextBlock Grid.Column="2" Style="{StaticResource InsightsColumnHeaderStyle}" Text="Lines" TextAlignment="Right" />
+                  <TextBlock Grid.Column="3" Margin="16,0,0,0" Style="{StaticResource InsightsColumnHeaderStyle}" Text="Share of code" />
+                </Grid>
+                <Rectangle Margin="0,2,0,2" Style="{StaticResource ForgeDividerStyle}" />
+                <ItemsControl AutomationProperties.AutomationId="Insights.LanguagesTable" Focusable="False" ItemsSource="{Binding Languages}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:InsightsLanguageViewModel}">
+                      <Grid MinHeight="28">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="72" />
+                          <ColumnDefinition Width="88" />
+                          <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                          <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{Binding Color}" />
+                          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding FilesText}" TextAlignment="Right" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding LinesText}" TextAlignment="Right" />
+                        <Grid Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="56" />
+                          </Grid.ColumnDefinitions>
+                          <Border Style="{StaticResource OverviewBarTrackStyle}">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding Share, Converter={StaticResource OverviewStar}}" />
+                                <ColumnDefinition Width="{Binding Remainder, Converter={StaticResource OverviewStar}}" />
+                              </Grid.ColumnDefinitions>
+                              <Border Background="{Binding Color}" CornerRadius="3" />
+                            </Grid>
+                          </Border>
+                          <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ShareText}"
+                                     TextAlignment="Right" />
+                        </Grid>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Dependencies ===== -->
+            <Border AutomationProperties.AutomationId="Insights.DependenciesCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="BoxMultiple20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Dependencies" />
+                  <TextBlock Grid.Column="2" Margin="10,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}"
+                             Text="{Binding DependencySummary}" />
+                  <ui:TextBox Grid.Column="3" Width="200" Height="32" AutomationProperties.AutomationId="Insights.DependencySearch"
+                              AutomationProperties.Name="Search dependencies" ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}"
+                              PlaceholderText="Search packages" Text="{Binding DependencySearch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              Visibility="{Binding HasDependencies, Converter={StaticResource BoolToVisibility}}">
+                    <ui:TextBox.InputBindings>
+                      <KeyBinding Key="Escape" Command="{Binding ClearDependencySearchCommand}" />
+                    </ui:TextBox.InputBindings>
+                  </ui:TextBox>
+                </Grid>
+
+                <TextBlock Margin="0,4,0,4" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="No dependency manifest found (package.json, *.csproj, Cargo.toml, requirements.txt, go.mod…)."
+                           Visibility="{Binding HasDependencies, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                <Grid Visibility="{Binding HasDependencies, Converter={StaticResource BoolToVisibility}}">
+                  <ListBox MaxHeight="340" AutomationProperties.AutomationId="Insights.DependencyList" AutomationProperties.Name="Dependencies"
+                           ItemsSource="{Binding DependencyRows}" Style="{StaticResource InsightsCardListStyle}"
+                           Visibility="{Binding HasDependencyMatches, Converter={StaticResource BoolToVisibility}}" />
+                  <TextBlock Margin="0,8,0,8" Style="{StaticResource ForgeBodySecondary}" Text="No package matches this search."
+                             Visibility="{Binding HasDependencyMatches, Converter={StaticResource InverseBoolToVisibility}}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== TODO / FIXME ===== -->
+            <Border AutomationProperties.AutomationId="Insights.TodoCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="NoteEdit20" />
+                  <TextBlock Style="{StaticResource OverviewCardTitleStyle}" Text="TODO / FIXME" />
+                  <Border Margin="8,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}" Visibility="{Binding TodoCount, Converter={StaticResource ZeroToCollapsed}}">
+                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding TodoCount}" />
+                  </Border>
+                </StackPanel>
+
+                <StackPanel Margin="0,0,0,4" Orientation="Horizontal" Visibility="{Binding TodoCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ItemsControl Focusable="False" ItemsSource="{Binding TodoTags}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:InsightsTodoTagViewModel}">
+                        <StackPanel Margin="0,0,12,6" Orientation="Horizontal">
+                          <controls:Pill Kind="{Binding Tone, Converter={StaticResource OverviewToneToKind}}" Text="{Binding Tag}" />
+                          <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Count}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <StackPanel Margin="0,4,0,4" Orientation="Horizontal">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding TodoCount}" Value="0">
+                          <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <ui:SymbolIcon FontSize="18" Foreground="{DynamicResource ForgeSuccessBrush}" Symbol="CheckmarkCircle20" />
+                  <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="No TODO, FIXME or HACK markers in the code." />
+                </StackPanel>
+
+                <ListBox MaxHeight="300" Margin="-8,0,-8,0" AutomationProperties.AutomationId="Insights.TodoList" AutomationProperties.Name="TODO markers"
+                         ItemsSource="{Binding Todos}" Style="{StaticResource InsightsCardListStyle}"
+                         Visibility="{Binding Todos.Count, Converter={StaticResource ZeroToCollapsed}}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:InsightsTodoViewModel}">
+                      <Button AutomationProperties.AutomationId="Insights.TodoRow" AutomationProperties.Name="{Binding Text}"
+                              Command="{Binding DataContext.OpenTodoCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                              Style="{StaticResource OverviewRowButtonStyle}" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                              ToolTip="{Binding ToolTip}">
+                        <Button.ContextMenu>
+                          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Command="{Binding OpenTodoCommand}" FontWeight="SemiBold" Header="Open file"
+                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="Open16" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Command="{Binding CopyTextCommand}" Header="Copy location"
+                                      CommandParameter="{Binding PlacementTarget.DataContext.Location, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              <MenuItem.Icon>
+                                <ui:SymbolIcon Symbol="Copy16" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                          </ContextMenu>
+                        </Button.ContextMenu>
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <controls:Pill HorizontalAlignment="Left" VerticalAlignment="Top" Text="{Binding Tag}" />
+                          <StackPanel Grid.Column="1">
+                            <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Text}" />
+                            <TextBlock Margin="0,1,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Location}" />
+                          </StackPanel>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Margin="0,6,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding TodoOverflowText}"
+                           Visibility="{Binding TodoOverflowText, Converter={StaticResource NullToCollapsed}}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <!-- ================= Right column ================= -->
+          <StackPanel x:Name="RightColumn" Grid.Column="2">
+
+            <!-- ===== Git activity ===== -->
+            <Border AutomationProperties.AutomationId="Insights.GitActivityCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="History20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Git activity" />
+                  <Button Grid.Column="2" AutomationProperties.AutomationId="Insights.OpenGitButton" Command="{Binding OpenGitCommand}" Content="Open Git"
+                          Style="{StaticResource OverviewLinkButtonStyle}" ToolTip="Open the Git tab" />
+                </Grid>
+
+                <TextBlock Margin="0,0,0,4" Style="{StaticResource ForgeBodySecondary}" TextWrapping="Wrap"
+                           Text="No Git history: this folder is not a repository, or it has no commit yet."
+                           Visibility="{Binding HasGitActivity, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                <StackPanel Visibility="{Binding HasGitActivity, Converter={StaticResource BoolToVisibility}}">
+                  <WrapPanel Margin="0,0,-8,4" Orientation="Horizontal">
+                    <Border Style="{StaticResource OverviewStatTileStyle}">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Commits30}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Commits, 30 days" />
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource OverviewStatTileStyle}">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding Commits90}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Commits, 90 days" />
+                      </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource OverviewStatTileStyle}">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding TotalCommits, StringFormat=N0}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Commits in total" />
+                      </StackPanel>
+                    </Border>
+                  </WrapPanel>
+
+                  <!-- 12-week chart -->
+                  <TextBlock Margin="0,4,0,8" Style="{StaticResource ForgeCaptionSecondary}" Text="Commits per week, last 12 weeks" />
+                  <ItemsControl Height="88" AutomationProperties.AutomationId="Insights.WeeklyChart" Focusable="False" ItemsSource="{Binding Weeks}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <UniformGrid Rows="1" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:InsightsWeekViewModel}">
+                        <Grid Margin="3,0" Background="Transparent" ToolTip="{Binding ToolTip}">
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="{Binding Remainder, Converter={StaticResource OverviewStar}}" />
+                            <RowDefinition Height="{Binding Ratio, Converter={StaticResource OverviewStar}}" />
+                            <RowDefinition Height="2" />
+                          </Grid.RowDefinitions>
+                          <Border Grid.Row="1" CornerRadius="3,3,0,0">
+                            <Border.Style>
+                              <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource ForgeAccentBrush}" />
+                                <Setter Property="Opacity" Value="0.55" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                    <Setter Property="Opacity" Value="1" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Border.Style>
+                          </Border>
+                          <Rectangle Grid.Row="2" Fill="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Grid Margin="3,6,3,0">
+                    <TextBlock HorizontalAlignment="Left" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Weeks[0].Label, FallbackValue=''}" />
+                    <TextBlock HorizontalAlignment="Right" Style="{StaticResource ForgeCaptionSecondary}" Text="This week" />
+                  </Grid>
+
+                  <!-- First / last commit -->
+                  <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <TextBlock Margin="0,0,16,4" Style="{StaticResource ForgeCaptionSecondary}">
+                      <Run Text="First commit" />
+                      <Run>
+                        <Run.Text>
+                          <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                            <Binding Path="FirstCommitAt" />
+                            <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                          </MultiBinding>
+                        </Run.Text>
+                      </Run>
+                    </TextBlock>
+                    <TextBlock Margin="0,0,16,4" Style="{StaticResource ForgeCaptionSecondary}">
+                      <Run Text="Last commit" />
+                      <Run>
+                        <Run.Text>
+                          <MultiBinding Converter="{StaticResource RelativeTime}" Mode="OneWay">
+                            <Binding Path="LastCommitAt" />
+                            <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                          </MultiBinding>
+                        </Run.Text>
+                      </Run>
+                    </TextBlock>
+                  </WrapPanel>
+
+                  <!-- Contributors -->
+                  <TextBlock Margin="0,12,0,6" Style="{StaticResource ForgeBodyStrong}" Text="Top contributors"
+                             Visibility="{Binding Contributors.Count, Converter={StaticResource ZeroToCollapsed}}" />
+                  <ItemsControl AutomationProperties.AutomationId="Insights.ContributorList" Focusable="False" ItemsSource="{Binding Contributors}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:InsightsContributorViewModel}">
+                        <Grid MinHeight="32">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <controls:ProjectAvatar VerticalAlignment="Center" ProjectName="{Binding Name}" Size="24" />
+                          <TextBlock Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+                          <Border Grid.Column="2" Style="{StaticResource OverviewBarTrackStyle}">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding Ratio, Converter={StaticResource OverviewStar}}" />
+                                <ColumnDefinition Width="{Binding Remainder, Converter={StaticResource OverviewStar}}" />
+                              </Grid.ColumnDefinitions>
+                              <Border Background="{DynamicResource ForgeAccentBrush}" CornerRadius="3" />
+                            </Grid>
+                          </Border>
+                          <TextBlock Grid.Column="3" MinWidth="84" Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}"
+                                     Text="{Binding CommitsText}" TextAlignment="Right" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <!-- Repository state -->
+                <StackPanel Margin="0,16,0,0" AutomationProperties.AutomationId="Insights.RepositoryState"
+                            Visibility="{Binding HasRepository, Converter={StaticResource BoolToVisibility}}">
+                  <Rectangle Margin="0,0,0,12" Style="{StaticResource ForgeDividerStyle}" />
+                  <TextBlock Margin="0,0,0,8" Style="{StaticResource ForgeBodyStrong}" Text="Repository state" />
+                  <ItemsControl Margin="0,0,-8,0" Focusable="False" ItemsSource="{Binding RepositoryFacts}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:InsightsRepositoryFactViewModel}">
+                        <Button Margin="0,0,8,8" Padding="12,8" HorizontalAlignment="Left" AutomationProperties.Name="{Binding Label}"
+                                Command="{Binding DataContext.OpenGitCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Style="{StaticResource OverviewRowButtonStyle}" ToolTip="Open the Git tab">
+                          <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                              <controls:StatusDot VerticalAlignment="Center" Size="7" Status="{Binding Tone, Converter={StaticResource OverviewToneToKind}}" />
+                              <TextBlock Margin="8,0,0,0" Style="{StaticResource OverviewStatValueStyle}" FontSize="18" Text="{Binding ValueText}" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Label}" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <TextBlock Margin="0,8,0,6" Style="{StaticResource ForgeCaptionSecondary}" Text="Branches to clean up"
+                             Visibility="{Binding CleanupBranches.Count, Converter={StaticResource ZeroToCollapsed}}" />
+                  <ItemsControl Focusable="False" ItemsSource="{Binding CleanupBranches}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:InsightsBranchViewModel}">
+                        <Button Margin="0,0,6,6" Padding="8,4" HorizontalAlignment="Left" AutomationProperties.Name="{Binding Name}"
+                                Command="{Binding DataContext.OpenGitCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ToolTip}">
+                          <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="BranchFork16" />
+                            <TextBlock Margin="6,0,6,0" VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding Name}" />
+                            <controls:Pill Text="merged" Kind="Success" Visibility="{Binding IsMerged, Converter={StaticResource BoolToVisibility}}" />
+                            <controls:Pill Text="stale" Kind="Warning" Visibility="{Binding IsMerged, Converter={StaticResource InverseBoolToVisibility}}" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Project hygiene ===== -->
+            <Border AutomationProperties.AutomationId="Insights.HygieneCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="ShieldCheckmark20" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource OverviewCardTitleStyle}" Text="Project hygiene" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding HygieneSummary}" />
+                </Grid>
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Insights.HygieneList" Focusable="False" ItemsSource="{Binding Hygiene}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:InsightsHygieneItemViewModel}">
+                      <Button AutomationProperties.Name="{Binding Label}" Command="{Binding DataContext.OpenHygieneItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}" IsEnabled="{Binding CanOpen}" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding ToolTip}"
+                              ToolTipService.ShowOnDisabled="True">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <ui:SymbolIcon Margin="0,1,10,0" VerticalAlignment="Top" FontSize="18"
+                                         Foreground="{Binding Tone, Converter={StaticResource OverviewToneToBrush}}"
+                                         Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}, ConverterParameter=CheckmarkCircle20}" />
+                          <StackPanel Grid.Column="1">
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="{Binding Label}" />
+                              <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Path}"
+                                         Visibility="{Binding Path, Converter={StaticResource NullToCollapsed}}" />
+                            </StackPanel>
+                            <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Why}" TextTrimming="None" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Largest files ===== -->
+            <Border AutomationProperties.AutomationId="Insights.LargestFilesCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Document20" />
+                  <TextBlock Style="{StaticResource OverviewCardTitleStyle}" Text="Largest files" />
+                </StackPanel>
+                <TextBlock Margin="0,4,0,4" Style="{StaticResource ForgeBodySecondary}" Text="No files were scanned."
+                           Visibility="{Binding HasLargestFiles, Converter={StaticResource InverseBoolToVisibility}}" />
+                <ItemsControl Margin="-8,0,-8,0" AutomationProperties.AutomationId="Insights.LargestFilesList" Focusable="False" ItemsSource="{Binding LargestFiles}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:InsightsLargeFileViewModel}">
+                      <Button AutomationProperties.Name="{Binding Path}" Command="{Binding DataContext.OpenLargeFileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}" Padding="8,4" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="{Binding Path}">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="72" />
+                          </Grid.ColumnDefinitions>
+                          <StackPanel VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding FileName}" />
+                            <TextBlock Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Directory}"
+                                       Visibility="{Binding Directory, Converter={StaticResource NullToCollapsed}}" />
+                          </StackPanel>
+                          <Border Grid.Column="1" Margin="12,0,0,0" Style="{StaticResource OverviewBarTrackStyle}">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding Ratio, Converter={StaticResource OverviewStar}}" />
+                                <ColumnDefinition Width="{Binding Remainder, Converter={StaticResource OverviewStar}}" />
+                              </Grid.ColumnDefinitions>
+                              <Border Background="{DynamicResource ForgeInfoBrush}" CornerRadius="3" />
+                            </Grid>
+                          </Border>
+                          <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding SizeText}"
+                                     TextAlignment="Right" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- ===== Tests ===== -->
+            <Border AutomationProperties.AutomationId="Insights.TestsCard" Style="{StaticResource OverviewCardStyle}">
+              <StackPanel>
+                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                  <ui:SymbolIcon Style="{StaticResource OverviewCardIconStyle}" Symbol="Beaker20" />
+                  <TextBlock Style="{StaticResource OverviewCardTitleStyle}" Text="Tests" />
+                </StackPanel>
+
+                <Border Style="{StaticResource OverviewHintStyle}" Visibility="{Binding HasTests, Converter={StaticResource InverseBoolToVisibility}}">
+                  <StackPanel>
+                    <TextBlock Style="{StaticResource ForgeBodyStrong}" Text="No tests found" />
+                    <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" TextWrapping="Wrap"
+                               Text="Add a first test for the behavior that matters most, then run it from the Commands tab so regressions show up before your users see them." />
+                  </StackPanel>
+                </Border>
+
+                <StackPanel Visibility="{Binding HasTests, Converter={StaticResource BoolToVisibility}}">
+                  <WrapPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource OverviewStatTileStyle}">
+                      <StackPanel>
+                        <TextBlock Style="{StaticResource OverviewStatValueStyle}" Text="{Binding TestFileCount, StringFormat=N0}" />
+                        <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Test files" />
+                      </StackPanel>
+                    </Border>
+                  </WrapPanel>
+                  <TextBlock Margin="0,4,0,6" Style="{StaticResource ForgeCaptionSecondary}" Text="Frameworks"
+                             Visibility="{Binding TestFrameworks.Count, Converter={StaticResource ZeroToCollapsed}}" />
+                  <ItemsControl Focusable="False" ItemsSource="{Binding TestFrameworks}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type sys:String}">
+                        <controls:Pill Margin="0,0,6,6" Kind="Info" Text="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Margin="0,6,0,4" Style="{StaticResource ForgeCaptionSecondary}" Text="Locations"
+                             Visibility="{Binding TestLocations.Count, Converter={StaticResource ZeroToCollapsed}}" />
+                  <ItemsControl Margin="-8,0,-8,0" Focusable="False" ItemsSource="{Binding TestLocations}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type sys:String}">
+                        <Button Padding="8,4" MinHeight="28" Command="{Binding DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" Style="{StaticResource OverviewRowButtonStyle}" ToolTip="Open in Files">
+                          <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Folder20" />
+                            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding}" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
