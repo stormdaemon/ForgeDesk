@@ -122,6 +122,7 @@ public partial class App : Application
             await _services.GetRequiredService<ISettingsService>().LoadAsync().ConfigureAwait(true);
             _services.GetRequiredService<ThemeService>().Initialize();
             await RecoverInterruptedRunsAsync().ConfigureAwait(true);
+            _services.GetRequiredService<Presentation.Commands.RunNotificationsCoordinator>();
             _ = Task.Run(RestoreGitHubSessionAsync);
 
             var window = ShowMainWindow(activation, notifications);

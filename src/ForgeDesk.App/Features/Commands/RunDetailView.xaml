@@ -1,0 +1,278 @@
+<UserControl x:Class="ForgeDesk.App.Features.Commands.RunDetailView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:commands="clr-namespace:ForgeDesk.App.Features.Commands"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Commands;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:RunDetailViewModel}"
+             d:DesignHeight="700" d:DesignWidth="800"
+             AutomationProperties.AutomationId="Commands.RunDetail"
+             Focusable="False"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <Grid Margin="16,16,24,16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Header: status, label, actions ===== -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <controls:Pill VerticalAlignment="Center" AutomationProperties.AutomationId="Commands.RunStatus"
+                     Kind="{Binding Run.Status, Converter={StaticResource ToStatusKind}}" Text="{Binding Run.StatusText}" />
+      <TextBlock Grid.Column="1" Margin="10,0,12,0" VerticalAlignment="Center" Style="{StaticResource ForgeTitle}" Text="{Binding Run.Label}"
+                 ToolTip="{Binding Run.Label}" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <ui:Button Appearance="Danger" AutomationProperties.AutomationId="Commands.CancelRunButton" Command="{Binding CancelCommand}" Content="Cancel"
+                   Icon="{ui:SymbolIcon Stop16}" ToolTip="Stop the command and its child processes"
+                   Visibility="{Binding Run.IsRunning, Converter={StaticResource BoolToVisibility}}" />
+        <ui:Button Margin="8,0,0,0" Appearance="Primary" AutomationProperties.AutomationId="Commands.RunAgainButton" Command="{Binding RunAgainCommand}"
+                   Content="Run again" Icon="{ui:SymbolIcon ArrowRepeatAll16}" ToolTip="Start the same command again"
+                   Visibility="{Binding Run.IsFinished, Converter={StaticResource BoolToVisibility}}" />
+        <ui:Button Margin="8,0,0,0" AutomationProperties.AutomationId="Commands.OpenLogButton" AutomationProperties.Name="Open the log file"
+                   Command="{Binding OpenLogFileCommand}" Icon="{ui:SymbolIcon DocumentText16}" Style="{StaticResource ForgeIconButtonStyle}"
+                   ToolTip="Open the log file" />
+        <ui:Button AutomationProperties.AutomationId="Commands.CopyOutputButton" AutomationProperties.Name="Copy the output" Command="{Binding CopyOutputCommand}"
+                   Icon="{ui:SymbolIcon Copy16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Copy the output" />
+      </StackPanel>
+    </Grid>
+
+    <!-- ===== Command line and facts ===== -->
+    <StackPanel Grid.Row="1" Margin="0,12,0,0">
+      <Border Padding="10,6,4,6" Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{StaticResource ForgeMono}" Text="&gt;" />
+          <TextBlock Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center" AutomationProperties.AutomationId="Commands.RunCommandLine"
+                     Style="{StaticResource ForgeMono}" Text="{Binding Run.CommandLine}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Run.CommandLine}" />
+          <ui:Button Grid.Column="2" Width="26" Height="26" MinWidth="26" MinHeight="26" AutomationProperties.Name="Copy the command line"
+                     Command="{Binding CopyCommandLineCommand}" FontSize="13" Icon="{ui:SymbolIcon Copy16}" Style="{StaticResource ForgeIconButtonStyle}"
+                     ToolTip="Copy the command line" />
+        </Grid>
+      </Border>
+
+      <WrapPanel Margin="0,10,0,0">
+        <StackPanel Margin="0,0,20,4" Orientation="Horizontal" ToolTip="{Binding Run.WorkingDirectory}">
+          <ui:SymbolIcon Style="{StaticResource CommandsMetaIconStyle}" Symbol="Folder16" />
+          <TextBlock MaxWidth="280" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding WorkingDirectoryText}" />
+        </StackPanel>
+        <StackPanel Margin="0,0,20,4" Orientation="Horizontal" ToolTip="Started">
+          <ui:SymbolIcon Style="{StaticResource CommandsMetaIconStyle}" Symbol="CalendarClock16" />
+          <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Run.StartedAtText}" />
+        </StackPanel>
+        <StackPanel Margin="0,0,20,4" Orientation="Horizontal" ToolTip="Duration">
+          <ui:SymbolIcon Style="{StaticResource CommandsMetaIconStyle}" Symbol="Timer16" />
+          <TextBlock AutomationProperties.AutomationId="Commands.RunDuration" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Run.DurationText}" />
+        </StackPanel>
+        <StackPanel Margin="0,0,20,4" Orientation="Horizontal" ToolTip="Exit code" Visibility="{Binding Run.HasExitCode, Converter={StaticResource BoolToVisibility}}">
+          <ui:SymbolIcon Style="{StaticResource CommandsMetaIconStyle}" Symbol="ArrowExportLtr16" />
+          <TextBlock Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Run.ExitCodeText}" />
+        </StackPanel>
+        <StackPanel Margin="0,0,20,4" Orientation="Horizontal" Visibility="{Binding Run.HasProgress, Converter={StaticResource BoolToVisibility}}">
+          <ui:SymbolIcon Style="{StaticResource CommandsMetaIconStyle}" Symbol="CircleHalfFill16" />
+          <TextBlock Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Run.ProgressText}" />
+        </StackPanel>
+      </WrapPanel>
+    </StackPanel>
+
+    <!-- ===== Progress (determinate when the output reports it) ===== -->
+    <Grid Grid.Row="2" Margin="0,8,0,0" Visibility="{Binding Run.IsRunning, Converter={StaticResource BoolToVisibility}}">
+      <ProgressBar Height="4" AutomationProperties.AutomationId="Commands.RunProgress" Maximum="100" Value="{Binding Run.ProgressPercent, Mode=OneWay}"
+                   Visibility="{Binding Run.HasProgress, Converter={StaticResource BoolToVisibility}}" />
+      <ProgressBar Height="4" IsIndeterminate="True" Visibility="{Binding Run.HasProgress, Converter={StaticResource InverseBoolToVisibility}}" />
+    </Grid>
+
+    <!-- ===== Stalled warning ===== -->
+    <Grid Grid.Row="3" Margin="0,12,0,0" Visibility="{Binding IsStalled, Converter={StaticResource BoolToVisibility}}">
+      <ui:InfoBar AutomationProperties.AutomationId="Commands.StalledWarning" IsClosable="False" IsOpen="{Binding IsStalled, Mode=OneWay}"
+                  Message="{Binding StalledMessage}" Severity="Warning" Title="This command looks stuck" />
+      <ui:Button Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Secondary"
+                 AutomationProperties.AutomationId="Commands.StalledCancelButton" Command="{Binding CancelCommand}" Content="Cancel"
+                 ToolTip="Stop the command" />
+    </Grid>
+
+    <!-- ===== Error summary of a failed run ===== -->
+    <Border Grid.Row="4" Margin="0,12,0,0" Padding="16,12,8,12" AutomationProperties.AutomationId="Commands.ErrorSummary"
+            Background="{DynamicResource ForgeDangerSubtleBrush}" BorderBrush="{DynamicResource ForgeDangerBrush}" BorderThickness="1" CornerRadius="8">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Setter Property="Visibility" Value="Collapsed" />
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Run.IsFailed}" Value="True" />
+                <Condition Binding="{Binding Run.HasErrorSummary}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="16" Filled="True" Foreground="{DynamicResource ForgeDangerBrush}" Symbol="ErrorCircle16" />
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="What went wrong" />
+        </StackPanel>
+        <ui:Button Grid.Column="1" Width="26" Height="26" MinWidth="26" MinHeight="26" AutomationProperties.Name="Copy the error summary"
+                   Command="{Binding CopyErrorSummaryCommand}" FontSize="13" Icon="{ui:SymbolIcon Copy16}" Style="{StaticResource ForgeIconButtonStyle}"
+                   ToolTip="Copy the error summary" />
+        <TextBox Grid.Row="1" Grid.ColumnSpan="2" MaxHeight="140" Margin="0,8,8,0" Style="{StaticResource CommandsSelectableMonoStyle}"
+                 Text="{Binding Run.ErrorSummary, Mode=OneWay}" />
+      </Grid>
+    </Border>
+
+    <!-- ===== Output ===== -->
+    <Grid Grid.Row="5" Margin="0,16,0,0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Toolbar: search with next / previous -->
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="Output" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Log.LineCountText}" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="· earlier lines are in the log file"
+                     Visibility="{Binding Log.IsTruncated, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal">
+          <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Log.MatchSummary}" />
+          <ui:TextBox x:Name="LogSearchBox" Width="220" AutomationProperties.AutomationId="Commands.LogSearchBox" AutomationProperties.Name="Search the output"
+                      ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}" PlaceholderText="Search output (Ctrl+F)" PreviewKeyDown="OnSearchKeyDown"
+                      Text="{Binding Log.SearchText, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+          <ui:Button Margin="4,0,0,0" AutomationProperties.AutomationId="Commands.PreviousMatchButton" AutomationProperties.Name="Previous result"
+                     Command="{Binding Log.PreviousMatchCommand}" Icon="{ui:SymbolIcon ChevronUp16}" Style="{StaticResource ForgeIconButtonStyle}"
+                     ToolTip="Previous result (Shift+Enter)" />
+          <ui:Button AutomationProperties.AutomationId="Commands.NextMatchButton" AutomationProperties.Name="Next result" Command="{Binding Log.NextMatchCommand}"
+                     Icon="{ui:SymbolIcon ChevronDown16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Next result (Enter)" />
+        </StackPanel>
+      </Grid>
+
+      <Border Grid.Row="1" Style="{StaticResource CommandsLogSurfaceStyle}">
+        <Grid>
+          <ListBox x:Name="LogList" Padding="0,6" AutomationProperties.AutomationId="Commands.LogView" AutomationProperties.Name="Output"
+                   Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource CommandsLogLineItemStyle}" ItemsSource="{Binding Log.Lines}"
+                   PreviewKeyDown="OnLogKeyDown" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   SelectionMode="Extended" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel"
+                   VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:LogLineViewModel}">
+                <TextBlock commands:LogHighlighter.Query="{Binding DataContext.Log.SearchText, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                           commands:LogHighlighter.Text="{Binding Text}" Style="{StaticResource CommandsLogTextStyle}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ContextMenu>
+              <ContextMenu>
+                <MenuItem Click="OnCopySelectedLines" Header="Copy selected lines" InputGestureText="Ctrl+C">
+                  <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Copy16" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding CopyOutputCommand}" Header="Copy all output">
+                  <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="DocumentCopy16" />
+                  </MenuItem.Icon>
+                </MenuItem>
+                <Separator />
+                <MenuItem Command="{Binding OpenLogFileCommand}" Header="Open the log file">
+                  <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="DocumentText16" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </ContextMenu>
+            </ListBox.ContextMenu>
+          </ListBox>
+
+          <!-- Empty output -->
+          <TextBlock Margin="16,12" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Waiting for output…">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource ForgeBodySecondary}">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                  <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                      <Condition Binding="{Binding Log.IsEmpty}" Value="True" />
+                      <Condition Binding="{Binding Log.IsLive}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                  </MultiDataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <TextBlock Margin="16,12" HorizontalAlignment="Left" VerticalAlignment="Top" Text="This run printed nothing.">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource ForgeBodySecondary}">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                  <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                      <Condition Binding="{Binding Log.IsEmpty}" Value="True" />
+                      <Condition Binding="{Binding Log.IsLive}" Value="False" />
+                      <Condition Binding="{Binding HasError}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                  </MultiDataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+
+          <controls:LoadingState IsActive="{Binding Log.IsLoading}" Message="Reading the output…"
+                                 Visibility="{Binding Log.IsLoading, Converter={StaticResource BoolToVisibility}}" />
+          <controls:ErrorPanel Margin="16" Error="{Binding Error}" RetryCommand="{Binding RetryLoadCommand}" />
+
+          <!-- Auto-scroll paused: back to the end -->
+          <ui:Button Margin="0,0,20,16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Appearance="Primary"
+                     AutomationProperties.AutomationId="Commands.JumpToLatestButton" Command="{Binding Log.JumpToLatestCommand}" Content="Jump to latest"
+                     Icon="{ui:SymbolIcon ArrowDown16}" ToolTip="Scroll to the newest output and follow it">
+            <ui:Button.Style>
+              <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                  <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                      <Condition Binding="{Binding Log.IsFollowing}" Value="False" />
+                      <Condition Binding="{Binding Log.IsEmpty}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                  </MultiDataTrigger>
+                </Style.Triggers>
+              </Style>
+            </ui:Button.Style>
+          </ui:Button>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

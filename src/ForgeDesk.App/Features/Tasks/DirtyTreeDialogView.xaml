@@ -1,0 +1,49 @@
+<UserControl x:Class="ForgeDesk.App.Features.Tasks.DirtyTreeDialogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Tasks;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:DirtyTreeDialogViewModel}"
+             d:DesignWidth="520"
+             AutomationProperties.AutomationId="Tasks.DirtyTreeDialog">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border Background="{DynamicResource ContentDialogTopOverlay}">
+      <StackPanel Margin="24,8,24,24">
+        <StackPanel Orientation="Horizontal">
+          <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Center" FontSize="22" Filled="True" Foreground="{DynamicResource ForgeWarningBrush}" Symbol="Warning16" />
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeTitle}" Text="{Binding Title}" />
+        </StackPanel>
+        <TextBlock Margin="0,12,0,0" Style="{StaticResource ForgeBody}" Text="{Binding Explanation}" TextWrapping="Wrap" />
+        <Border Margin="0,12,0,0" Padding="10,6" HorizontalAlignment="Left" Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource ForgeAccentBrush}" Symbol="BranchFork16" />
+            <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding Branch}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1" Padding="24,20" BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}" BorderThickness="0,1,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:Button x:Name="StashButton" Margin="0,0,4,0" HorizontalAlignment="Stretch" Appearance="Primary" AutomationProperties.AutomationId="Tasks.StashAndSwitchButton"
+                   Command="{Binding StashAndSwitchCommand}" Content="Stash and switch" IsDefault="True" />
+        <ui:Button Grid.Column="1" Margin="4,0,4,0" HorizontalAlignment="Stretch" Appearance="Secondary" AutomationProperties.AutomationId="Tasks.CreateWithoutSwitchingButton"
+                   Command="{Binding CreateWithoutSwitchingCommand}" Content="{Binding SecondaryText}" />
+        <ui:Button Grid.Column="2" Margin="4,0,0,0" Appearance="Secondary" Command="{Binding CancelCommand}" Content="Cancel" IsCancel="True" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>
