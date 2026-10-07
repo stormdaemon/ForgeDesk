@@ -166,7 +166,15 @@ public sealed record WorkflowStepInfo(int Number, string Name, CiState State, Da
 
 public sealed record WorkflowJobInfo(long Id, string Name, CiState State, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt, string HtmlUrl, IReadOnlyList<WorkflowStepInfo> Steps);
 
-public sealed record GitHubReleaseAsset(long Id, string Name, long Size, int DownloadCount, string DownloadUrl, string ContentType);
+public sealed record GitHubReleaseAsset(long Id, string Name, long Size, int DownloadCount, string DownloadUrl, string ContentType)
+{
+    /// <summary>"uploaded" once the file is complete; an interrupted upload can leave another state (e.g. "starter").</summary>
+    public string State { get; init; } = UploadedState;
+
+    public const string UploadedState = "uploaded";
+
+    public bool IsUploaded => string.Equals(State, UploadedState, StringComparison.OrdinalIgnoreCase);
+}
 
 public sealed record GitHubRelease
 {
@@ -197,6 +205,18 @@ public sealed record NewRelease
     public bool Draft { get; init; }
     public bool Prerelease { get; init; }
     public bool MakeLatest { get; init; } = true;
+}
+
+/// <summary>Fields to change on an existing release; null leaves a field unchanged.</summary>
+public sealed record ReleaseChanges
+{
+    public string? Name { get; init; }
+    public string? Body { get; init; }
+
+    /// <summary>Branch or SHA GitHub tags when the release is published and the tag does not exist yet.</summary>
+    public string? TargetCommitish { get; init; }
+    public bool? Prerelease { get; init; }
+    public bool? MakeLatest { get; init; }
 }
 
 public sealed record RateLimitInfo(int Limit, int Remaining, DateTimeOffset ResetsAt);

@@ -102,6 +102,11 @@ public interface IGitHubService
 
     Task<GitHubRelease> PublishReleaseAsync(GitHubRepoRef repo, long releaseId, CancellationToken cancellationToken = default);
 
+    /// <summary>Edits a release's metadata (title, notes, target, prerelease) without changing its draft state.</summary>
+    Task<GitHubRelease> UpdateReleaseAsync(GitHubRepoRef repo, long releaseId, ReleaseChanges changes, CancellationToken cancellationToken = default);
+
+    Task DeleteReleaseAssetAsync(GitHubRepoRef repo, long assetId, CancellationToken cancellationToken = default);
+
     Task DeleteReleaseAsync(GitHubRepoRef repo, long releaseId, CancellationToken cancellationToken = default);
 
     Task<GitHubReleaseAsset> UploadReleaseAssetAsync(GitHubRepoRef repo, long releaseId, string filePath, IProgress<TransferProgress>? progress = null, CancellationToken cancellationToken = default);

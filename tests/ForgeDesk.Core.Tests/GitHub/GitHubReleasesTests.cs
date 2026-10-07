@@ -112,6 +112,45 @@ public class GitHubReleasesTests
     }
 
     [Fact]
+    public async Task Asset_upload_state_is_mapped()
+    {
+        using var h = new GitHubServiceHarness();
+        h.Api.OnGet(ReleasesPath, Array([
+            Release(1, "v1.0.0", draft: true, assets: Array([Asset(10, "a.zip"), Asset(11, "b.zip").Replace("\"uploaded\"", "\"starter\"")])),
+        ]));
+
+        var release = (await h.Service.GetReleasesAsync(GitHubServiceHarness.Repo, 10, Ct)).Single();
+
+        release.Assets.Select(a => (a.State, a.IsUploaded)).Should().Equal(("uploaded", true), ("starter", false));
+    }
+
+    [Fact]
+    public async Task Updating_a_release_sends_only_the_changed_fields()
+    {
+        using var h = new GitHubServiceHarness();
+        h.Api.On(HttpMethod.Patch, $"{ReleasesPath}/5", _ => FakeGitHubApi.Json(Release(5, "v2.0.0", draft: true)));
+
+        var updated = await h.Service.UpdateReleaseAsync(GitHubServiceHarness.Repo, 5,
+            new ReleaseChanges { Name = " v2 ", Body = "Notes", TargetCommitish = "abc1234", Prerelease = false, MakeLatest = true }, Ct);
+
+        updated.IsDraft.Should().BeTrue();
+        var body = h.Api.RequestsTo($"{ReleasesPath}/5").Single().Body;
+        body.Should().Contain("\"name\":\"v2\"").And.Contain("\"body\":\"Notes\"").And.Contain("\"target_commitish\":\"abc1234\"")
+            .And.Contain("\"prerelease\":false").And.Contain("\"make_latest\":\"true\"").And.NotContain("draft");
+    }
+
+    [Fact]
+    public async Task Deleting_a_release_asset_sends_delete()
+    {
+        using var h = new GitHubServiceHarness();
+        h.Api.On(HttpMethod.Delete, $"{ReleasesPath}/assets/11", _ => FakeGitHubApi.Empty(HttpStatusCode.NoContent));
+
+        await h.Service.DeleteReleaseAssetAsync(GitHubServiceHarness.Repo, 11, Ct);
+
+        h.Api.RequestsTo($"{ReleasesPath}/assets/11").Should().ContainSingle().Which.Method.Should().Be(HttpMethod.Delete);
+    }
+
+    [Fact]
     public async Task Deleting_a_release_sends_delete()
     {
         using var h = new GitHubServiceHarness();

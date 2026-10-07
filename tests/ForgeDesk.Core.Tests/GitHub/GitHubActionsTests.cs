@@ -133,6 +133,29 @@ public class GitHubActionsTests
     }
 
     [Fact]
+    public async Task Ci_summary_ignores_pull_request_runs_from_forks_with_the_same_branch_name()
+    {
+        // GH-1: branch= matches head_branch, so a fork's "main" PR run is listed with the repository's main runs.
+        using var h = new GitHubServiceHarness();
+        var forkRun = WorkflowRun(5, "CI", 1, "completed", "failure", "2026-09-20T12:00:00Z", headSha: "fork");
+        forkRun = forkRun.Insert(forkRun.LastIndexOf('}'), """
+            , "event": "pull_request", "repository": { "id": 100, "name": "app", "full_name": "octo/app" },
+              "head_repository": { "id": 200, "name": "app", "full_name": "contributor/app" }
+            """).Replace("\"event\": \"push\",", string.Empty);
+        var ownRun = WorkflowRun(4, "CI", 1, "completed", "success", "2026-09-20T11:00:00Z", headSha: "own");
+        ownRun = ownRun.Insert(ownRun.LastIndexOf('}'), """
+            , "repository": { "id": 100, "name": "app", "full_name": "octo/app" },
+              "head_repository": { "id": 100, "name": "app", "full_name": "octo/app" }
+            """);
+        h.Api.OnGet(RunsPath, WorkflowRuns(forkRun, ownRun));
+
+        var summary = await h.Service.GetCiSummaryAsync(GitHubServiceHarness.Repo, "main", Ct);
+
+        summary.State.Should().Be(CiState.Success);
+        summary.HeadSha.Should().Be("own");
+    }
+
+    [Fact]
     public async Task Ci_summary_reports_failing_workflows_by_name()
     {
         using var h = new GitHubServiceHarness();

@@ -60,6 +60,7 @@ public sealed class ReleaseServiceExecuteTests : IDisposable
                 return new GitHubReleaseAsset(7, Path.GetFileName(ci.Arg<string>()), size, 0, "https://example.com/a", "application/octet-stream");
             });
         _github.PublishReleaseAsync(Repo, 42, Arg.Any<CancellationToken>()).Returns(Release(draft: false));
+        _github.UpdateReleaseAsync(Repo, 42, Arg.Any<ReleaseChanges>(), Arg.Any<CancellationToken>()).Returns(Release(draft: true));
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -373,7 +374,7 @@ public sealed class ReleaseServiceExecuteTests : IDisposable
             (ReleaseStepKind.Validate, ReleaseStepState.Succeeded),
             (ReleaseStepKind.CreateTag, ReleaseStepState.Skipped),
             (ReleaseStepKind.PushTag, ReleaseStepState.Skipped),
-            (ReleaseStepKind.CreateRelease, ReleaseStepState.Skipped),
+            (ReleaseStepKind.CreateRelease, ReleaseStepState.Succeeded),
             (ReleaseStepKind.UploadAsset, ReleaseStepState.Skipped),
             (ReleaseStepKind.UploadAsset, ReleaseStepState.Succeeded),
             (ReleaseStepKind.Publish, ReleaseStepState.Succeeded));
@@ -438,6 +439,127 @@ public sealed class ReleaseServiceExecuteTests : IDisposable
         var result = await _service.ExecuteAsync(_project, Plan() with { Assets = [_zip] }, progress, Ct);
 
         result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Without_tag_creation_an_existing_github_tag_at_another_commit_fails_validation()
+    {
+        // REL-1: GitHub ignores target_commitish when the tag exists, so the release would land on the old commit.
+        _github.GetTagsAsync(Repo, Arg.Any<CancellationToken>()).Returns([new GitHubTag("v1.2.0", OtherSha)]);
+
+        var result = await ExecuteAsync(Plan() with { CreateAndPushTag = false });
+
+        AssertFailedAt(result, ReleaseStepKind.Validate, "The tag v1.2.0 already exists on GitHub and points to another commit.");
+        await _github.DidNotReceiveWithAnyArgs().CreateReleaseAsync(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task Without_tag_creation_an_existing_github_tag_at_the_target_is_used()
+    {
+        _github.GetTagsAsync(Repo, Arg.Any<CancellationToken>()).Returns([new GitHubTag("v1.2.0", HeadSha)]);
+
+        var result = await ExecuteAsync(Plan() with { CreateAndPushTag = false });
+
+        result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Resuming_a_draft_applies_the_new_plan_before_publishing()
+    {
+        // REL-2: the draft of an earlier attempt carries its old target, title, notes and prerelease flag.
+        var draft = Release(draft: true) with { Name = "Old title", Body = "Old notes", TargetCommitish = OtherSha, IsPrerelease = true };
+        _github.GetReleasesAsync(Repo, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([draft]);
+
+        var result = await ExecuteAsync(Plan() with { CreateAndPushTag = false, Assets = [_zip] });
+
+        result.Succeeded.Should().BeTrue();
+        await _github.Received(1).UpdateReleaseAsync(Repo, 42, Arg.Is<ReleaseChanges>(c =>
+            c.Name == "ForgeDesk 1.2" && c.Body == "Notes" && c.TargetCommitish == HeadSha && c.Prerelease == false && c.MakeLatest == true),
+            Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _github.UpdateReleaseAsync(Repo, 42, Arg.Any<ReleaseChanges>(), Arg.Any<CancellationToken>());
+            _github.PublishReleaseAsync(Repo, 42, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task Resume_matches_assets_that_github_renamed()
+    {
+        // REL-3: GitHub replaces spaces and special characters in asset names with dots.
+        var setup = _dir.WriteFile("dist/ForgeDesk Setup 1.0.0.exe", new string('s', 300));
+        var draft = Release(draft: true) with { Assets = [new GitHubReleaseAsset(1, "ForgeDesk.Setup.1.0.0.exe", 300, 0, "https://example.com/s", "application/octet-stream")] };
+        _github.GetReleasesAsync(Repo, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([draft]);
+
+        var result = await ExecuteAsync(Plan() with { Assets = [setup] });
+
+        result.Succeeded.Should().BeTrue();
+        result.Steps.Single(s => s.Step == ReleaseStepKind.UploadAsset).State.Should().Be(ReleaseStepState.Skipped);
+        await _github.DidNotReceiveWithAnyArgs().UploadReleaseAssetAsync(default!, default, default!, default, default);
+    }
+
+    [Fact]
+    public async Task Assets_that_github_would_give_the_same_name_fail_validation()
+    {
+        var a = _dir.WriteFile("dist/a b.zip", "1");
+        var b = _dir.WriteFile("dist/a.b.zip", "2");
+
+        var result = await ExecuteAsync(Plan() with { Assets = [a, b] });
+
+        AssertFailedAt(result, ReleaseStepKind.Validate, "Two assets are named");
+    }
+
+    [Fact]
+    public async Task A_partially_uploaded_asset_on_the_draft_is_replaced()
+    {
+        // REL-4: an interrupted upload leaves an asset that is not in the "uploaded" state.
+        var draft = Release(draft: true) with { Assets = [new GitHubReleaseAsset(9, "forge-win-x64.zip", 1000, 0, "https://example.com/z", "application/zip") { State = "starter" }] };
+        _github.GetReleasesAsync(Repo, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([draft]);
+
+        var result = await ExecuteAsync(Plan() with { Assets = [_zip] });
+
+        result.Succeeded.Should().BeTrue();
+        Received.InOrder(() =>
+        {
+            _github.DeleteReleaseAssetAsync(Repo, 9, Arg.Any<CancellationToken>());
+            _github.UploadReleaseAssetAsync(Repo, 42, _zip, Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task Validation_reads_fresh_releases_and_tags_from_github()
+    {
+        // REL-5: decisions about drafts, assets and tags must not use data cached before a manual fix on github.com.
+        await ExecuteAsync(Plan());
+
+        Received.InOrder(() =>
+        {
+            _github.InvalidateCache(Repo);
+            _github.GetReleasesAsync(Repo, Arg.Any<int>(), Arg.Any<CancellationToken>());
+            _github.GetTagsAsync(Repo, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task Cancelling_while_the_release_is_created_does_not_abandon_the_request()
+    {
+        // REL-6: an abandoned POST still completes on GitHub; the run must know the release exists.
+        using var cts = new CancellationTokenSource();
+        _github.CreateReleaseAsync(Repo, Arg.Any<NewRelease>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                cts.Cancel();
+                ci.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                return Release(ci.Arg<NewRelease>().Draft);
+            });
+
+        var result = await _service.ExecuteAsync(_project, Plan(), Collector(), cts.Token);
+
+        result.Succeeded.Should().BeFalse();
+        result.Release.Should().NotBeNull();
+        result.Release!.HtmlUrl.Should().Be(PublishedUrl);
+        result.Steps.Single(s => s.Step == ReleaseStepKind.CreateRelease).State.Should().Be(ReleaseStepState.Succeeded);
+        result.Error.Should().Contain("Release v1.2.0 was published on GitHub before the cancellation took effect.");
     }
 
     [Fact]

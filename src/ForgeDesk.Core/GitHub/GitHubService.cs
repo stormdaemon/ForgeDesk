@@ -339,7 +339,9 @@ internal sealed class GitHubService : IGitHubService, IDisposable
             var runs = await CallAsync(RepositorySubject(repo),
                 c => ListRunsAsync(c, repo, resolvedBranch, workflowId: null, CiSummaryRunWindow),
                 CancellationToken.None).ConfigureAwait(false);
-            return CiStates.Summarize(resolvedBranch, runs.Select(GitHubMapper.ToWorkflowRun));
+            // The branch filter matches head_branch, which fork pull requests share ("main" of a fork):
+            // only runs of this repository's own commits describe the branch's health.
+            return CiStates.Summarize(resolvedBranch, runs.Where(IsFromThisRepository).Select(GitHubMapper.ToWorkflowRun));
         }, cancellationToken);
     }
 
@@ -388,6 +390,39 @@ internal sealed class GitHubService : IGitHubService, IDisposable
             c => c.Repository.Release.Edit(repo.Owner, repo.Name, releaseId, new ReleaseUpdate { Draft = false }),
             cancellationToken).ConfigureAwait(false);
         return GitHubMapper.ToRelease(published);
+    }
+
+    public async Task<GitHubRelease> UpdateReleaseAsync(GitHubRepoRef repo, long releaseId, ReleaseChanges changes, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repo);
+        ArgumentNullException.ThrowIfNull(changes);
+        var update = new ReleaseUpdate
+        {
+            Name = string.IsNullOrWhiteSpace(changes.Name) ? null : changes.Name.Trim(),
+            Body = changes.Body,
+            TargetCommitish = string.IsNullOrWhiteSpace(changes.TargetCommitish) ? null : changes.TargetCommitish.Trim(),
+            Prerelease = changes.Prerelease,
+            MakeLatest = changes.MakeLatest is { } latest
+                ? (latest && changes.Prerelease != true ? MakeLatestQualifier.True : MakeLatestQualifier.False)
+                : null,
+        };
+        var updated = await WriteAsync(repo, ReleaseSubject(repo),
+            c => c.Repository.Release.Edit(repo.Owner, repo.Name, releaseId, update),
+            cancellationToken).ConfigureAwait(false);
+        return GitHubMapper.ToRelease(updated);
+    }
+
+    public Task DeleteReleaseAssetAsync(GitHubRepoRef repo, long assetId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repo);
+        var uri = new Uri($"repos/{Uri.EscapeDataString(repo.Owner)}/{Uri.EscapeDataString(repo.Name)}/releases/assets/{assetId.ToString(CultureInfo.InvariantCulture)}", UriKind.Relative);
+        return WriteAsync(repo, ReleaseSubject(repo),
+            async c =>
+            {
+                await c.Connection.Delete(uri).ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken);
     }
 
     public Task DeleteReleaseAsync(GitHubRepoRef repo, long releaseId, CancellationToken cancellationToken = default)
@@ -534,6 +569,13 @@ internal sealed class GitHubService : IGitHubService, IDisposable
             ? await client.Actions.Workflows.Runs.ListByWorkflow(repo.Owner, repo.Name, id, request, options).ConfigureAwait(false)
             : await client.Actions.Workflows.Runs.List(repo.Owner, repo.Name, request, options).ConfigureAwait(false);
         return response.WorkflowRuns ?? [];
+    }
+
+    private static bool IsFromThisRepository(WorkflowRun run)
+    {
+        var baseId = run.Repository?.Id ?? 0;
+        var headId = run.HeadRepository?.Id ?? run.HeadRepositoryId;
+        return baseId == 0 || headId == 0 || baseId == headId;
     }
 
     private static ApiOptions Pages(int max)
