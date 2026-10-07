@@ -13,7 +13,8 @@ public sealed class WorkspaceSectionFactory : IWorkspaceSectionFactory
     public WorkspaceSectionFactory(IServiceProvider services, IEnumerable<WorkspaceSectionRegistration> registrations)
     {
         _services = services;
-        _types = registrations.ToDictionary(r => r.Section, r => r.ViewModelType);
+        // Like DI itself, the last registration of a section wins (a host or a test can override a feature's tab).
+        _types = registrations.GroupBy(r => r.Section).ToDictionary(g => g.Key, g => g.Last().ViewModelType);
     }
 
     public IReadOnlyCollection<WorkspaceSection> AvailableSections => _types.Keys;

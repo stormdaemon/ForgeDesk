@@ -1,8 +1,24 @@
 <!--
-  Files feature: implicit DataTemplates that map its view models to views, for example
-  <DataTemplate DataType="{x:Type vm:SomeViewModel}"><views:SomeView /></DataTemplate>
-  Merged by App.xaml.
+  Files feature: the Files tab of the project workspace (FilesSectionViewModel) with its file
+  preview and "Search in files" panel. Merged by App.xaml.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:files="clr-namespace:ForgeDesk.App.Features.Files"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.Files;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Features/Files/FilesStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:FilesSectionViewModel}">
+    <files:FilesSectionView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:FileViewerViewModel}">
+    <files:FileViewerView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:FileSearchViewModel}">
+    <files:FileSearchView />
+  </DataTemplate>
 </ResourceDictionary>

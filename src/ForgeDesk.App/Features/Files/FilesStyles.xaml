@@ -1,0 +1,242 @@
+<!--
+  Styles of the Files tab: tree rows (indent, chevron, git-colored names, folder dots), pane
+  toolbars and toggles, the breadcrumb, header chips, the image checkerboard and search results.
+  Merged by FilesTemplates.xaml. Brushes are DynamicResource so the light and dark themes both work.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:files="clr-namespace:ForgeDesk.App.Features.Files">
+
+  <files:FileImageSourceConverter x:Key="FilesImageSource" />
+  <files:ToneToStatusKindConverter x:Key="FilesToneToKind" />
+  <files:ImageDimensionsConverter x:Key="FilesImageDimensions" />
+  <files:ChevronVisibilityConverter x:Key="FilesChevronVisibility" />
+
+  <!-- Keyboard focus ring of the custom buttons below. -->
+  <Style x:Key="FilesFocusVisualStyle">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-1" RadiusX="5" RadiusY="5" SnapsToDevicePixels="True" StrokeThickness="2"
+                     Stroke="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Pane chrome ================================================================= -->
+
+  <Style x:Key="FilesPaneTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeSubtitle}">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Icon-only on/off toolbar toggle (Show hidden files, Only changed files, Search). -->
+  <Style x:Key="FilesToggleIconStyle" TargetType="ToggleButton">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FilesFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Surface" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ForgeAccentSubtleBrush}" />
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource ForgeAccentTextBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Smaller toggle inside the search box (Match case, Whole word, Regex). -->
+  <Style x:Key="FilesSearchOptionToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource FilesToggleIconStyle}">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+  </Style>
+
+  <!-- ===== Tree rows =================================================================== -->
+
+  <!-- 28 px rows, no vertical gap, so long trees read as one surface. -->
+  <Style x:Key="FilesTreeRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ForgeDenseListBoxItemStyle}">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="4,0" />
+    <Setter Property="Padding" Value="4,0,8,0" />
+    <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+  </Style>
+
+  <!-- Expand/collapse chevron of a folder row. -->
+  <Style x:Key="FilesChevronButtonStyle" TargetType="Button">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Background="Transparent" CornerRadius="4">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- File or folder name, colored by its git state (DataContext: FileTreeNodeViewModel). -->
+  <Style x:Key="FilesNameTextStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeBody}">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding GitTone}" Value="Warning">
+        <Setter Property="Foreground" Value="{DynamicResource ForgeWarningBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding GitTone}" Value="Success">
+        <Setter Property="Foreground" Value="{DynamicResource ForgeSuccessBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding GitTone}" Value="Danger">
+        <Setter Property="Foreground" Value="{DynamicResource ForgeDangerBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsConflicted}" Value="True">
+        <Setter Property="FontWeight" Value="Bold" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding GitState}" Value="Deleted">
+        <Setter Property="TextDecorations" Value="Strikethrough" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsDimmed}" Value="True">
+        <Setter Property="Opacity" Value="0.55" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- One-letter git badge at the end of a file row (M, A, U, D, R, !). -->
+  <Style x:Key="FilesGitLetterStyle" TargetType="TextBlock" BasedOn="{StaticResource FilesNameTextStyle}">
+    <Setter Property="FontFamily" Value="{DynamicResource ForgeMonoFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextDecorations" Value="{x:Null}" />
+    <Setter Property="Margin" Value="8,0,4,0" />
+    <Setter Property="MinWidth" Value="10" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+
+  <!-- Dot at the end of a folder row when something inside changed. -->
+  <Style x:Key="FilesFolderDotStyle" TargetType="Ellipse">
+    <Setter Property="Width" Value="6" />
+    <Setter Property="Height" Value="6" />
+    <Setter Property="Margin" Value="8,0,6,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Fill" Value="{DynamicResource ForgeWarningBrush}" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding GitTone}" Value="Danger">
+        <Setter Property="Fill" Value="{DynamicResource ForgeDangerBrush}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Row icon: folders in the accent text color, files secondary; dimmed with heavy/ignored rows. -->
+  <Style x:Key="FilesRowIconStyle" TargetType="ui:SymbolIcon">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="Margin" Value="2,0,8,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding IsDirectory}" Value="True">
+        <Setter Property="Foreground" Value="{DynamicResource ForgeAccentTextBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsDimmed}" Value="True">
+        <Setter Property="Opacity" Value="0.55" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- ===== Viewer ====================================================================== -->
+
+  <!-- Breadcrumb segment: quiet link, the last one (the file) in primary text. -->
+  <Style x:Key="FilesBreadcrumbButtonStyle" TargetType="Button">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FilesFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="4">
+            <ContentPresenter VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding IsLast}" Value="True">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- File facts in the header ("12.4 KB", "UTF-8", "CRLF", "240 lines"). -->
+  <Style x:Key="FilesMetaChipStyle" TargetType="Border">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Margin" Value="0,0,6,4" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="TextElement.FontSize" Value="12" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <!-- Transparent-pixel checkerboard behind image previews (neutral in both themes). -->
+  <DrawingBrush x:Key="FilesCheckerboardBrush" TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute" Stretch="None">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#14808080" Geometry="M0,0 H16 V16 H0 Z" />
+        <GeometryDrawing Brush="#26808080" Geometry="M0,0 H8 V8 H0 Z M8,8 H16 V16 H8 Z" />
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
+  <!-- ===== Search results ============================================================== -->
+
+  <Style x:Key="FilesSearchRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ForgeDenseListBoxItemStyle}">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Margin" Value="4,0" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="AutomationProperties.Name" Value="{Binding RelativePath}" />
+  </Style>
+
+  <Style x:Key="FilesMatchCountStyle" TargetType="Border" BasedOn="{StaticResource ForgeCountBadgeStyle}">
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+</ResourceDictionary>

@@ -1,0 +1,147 @@
+<UserControl x:Class="ForgeDesk.App.Features.Files.FileSearchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:files="clr-namespace:ForgeDesk.App.Features.Files"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Files;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:FileSearchViewModel}"
+             d:DesignHeight="720" d:DesignWidth="360"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Files.SearchView"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- File header: icon, name, folder, match count. -->
+    <DataTemplate DataType="{x:Type vm:SearchFileRow}">
+      <Grid Margin="0,6,0,0" ToolTip="{Binding RelativePath}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+        <DockPanel Grid.Column="1" VerticalAlignment="Center" LastChildFill="True">
+          <TextBlock DockPanel.Dock="Left" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+          <TextBlock Margin="8,0,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Directory}"
+                     Visibility="{Binding HasDirectory, Converter={StaticResource BoolToVisibility}}" />
+        </DockPanel>
+        <Border Grid.Column="2" Style="{StaticResource FilesMatchCountStyle}">
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding MatchCountText}" />
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Matching line: line number, text with the match highlighted. -->
+    <DataTemplate DataType="{x:Type vm:SearchMatchRow}">
+      <Grid Margin="24,0,0,0" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" MinWidth="36" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding LineNumberText}" TextAlignment="Right" />
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" FontFamily="{DynamicResource ForgeMonoFont}" FontSize="12"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis">
+          <Run Text="{Binding Before, Mode=OneWay}" /><Run Background="{DynamicResource ForgeAccentSubtleBrush}" FontWeight="SemiBold"
+               Foreground="{DynamicResource ForgeAccentTextBrush}" Text="{Binding Match, Mode=OneWay}" /><Run Text="{Binding After, Mode=OneWay}" />
+        </TextBlock>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Header -->
+    <Grid Grid.Row="0" Margin="24,16,12,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Style="{StaticResource FilesPaneTitleStyle}" Text="Search in files" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <ui:Button AutomationProperties.AutomationId="Files.SearchClearButton" AutomationProperties.Name="Clear results" Command="{Binding ClearCommand}"
+                   Icon="{ui:SymbolIcon Eraser20}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Clear search" />
+        <ui:Button AutomationProperties.AutomationId="Files.SearchCloseButton" AutomationProperties.Name="Back to files"
+                   Command="{Binding DataContext.CloseSearchCommand, RelativeSource={RelativeSource AncestorType=files:FilesSectionView}}"
+                   Icon="{ui:SymbolIcon Dismiss16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Back to files (Esc)" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Query with options -->
+    <Grid Grid.Row="1" Margin="16,0,12,6">
+      <ui:TextBox x:Name="QueryBox" Padding="10,6,100,6" AutomationProperties.AutomationId="Files.SearchQueryBox" AutomationProperties.Name="Search text"
+                  ClearButtonEnabled="False" Icon="{ui:SymbolIcon Search16}" PlaceholderText="Search" PreviewKeyDown="OnQueryKeyDown"
+                  Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" />
+      <StackPanel Margin="0,0,4,0" HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
+        <ToggleButton AutomationProperties.AutomationId="Files.MatchCaseToggle" AutomationProperties.Name="Match case" IsChecked="{Binding MatchCase}"
+                      Style="{StaticResource FilesSearchOptionToggleStyle}" ToolTip="Match case">
+          <ui:SymbolIcon FontSize="16" Symbol="TextCaseTitle16" />
+        </ToggleButton>
+        <ToggleButton AutomationProperties.AutomationId="Files.WholeWordToggle" AutomationProperties.Name="Match whole word" IsChecked="{Binding WholeWord}"
+                      Style="{StaticResource FilesSearchOptionToggleStyle}" ToolTip="Match whole word">
+          <ui:SymbolIcon FontSize="16" Symbol="TextWholeWord16" />
+        </ToggleButton>
+        <ToggleButton AutomationProperties.AutomationId="Files.RegexToggle" AutomationProperties.Name="Use regular expression" IsChecked="{Binding IsRegex}"
+                      Style="{StaticResource FilesSearchOptionToggleStyle}" ToolTip="Use regular expression">
+          <ui:SymbolIcon FontSize="16" Symbol="TextAsterisk16" />
+        </ToggleButton>
+      </StackPanel>
+    </Grid>
+
+    <!-- Files to include -->
+    <ui:TextBox Grid.Row="2" Margin="16,0,12,8" AutomationProperties.AutomationId="Files.SearchIncludeBox" AutomationProperties.Name="Files to include"
+                ClearButtonEnabled="True" Icon="{ui:SymbolIcon Filter16}" PlaceholderText="Files to include (e.g. *.cs, src/**)" PreviewKeyDown="OnQueryKeyDown"
+                Text="{Binding IncludeGlob, UpdateSourceTrigger=PropertyChanged}" ToolTip="Comma-separated globs; prefix with ! to exclude (!*.min.js)" />
+
+    <!-- Summary -->
+    <Grid Grid.Row="3" Margin="24,0,12,6" MinHeight="28">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <ui:ProgressRing Width="12" Height="12" Margin="0,0,8,0" IsIndeterminate="True" Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
+      <TextBlock Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AutomationId="Files.SearchSummary" Style="{StaticResource ForgeCaptionSecondary}"
+                 Text="{Binding Summary}" ToolTip="{Binding Summary}" />
+      <ui:Button Grid.Column="2" Padding="8,2" AutomationProperties.AutomationId="Files.SearchCancelButton" Command="{Binding CancelCommand}" Content="Cancel"
+                 FontSize="12" Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+
+    <!-- Results and states -->
+    <Grid Grid.Row="4">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <ui:InfoBar Grid.Row="0" Margin="16,0,12,8" IsClosable="False" IsOpen="{Binding IsTruncated, Mode=OneWay}" Message="{Binding TruncatedMessage}"
+                  Severity="Warning" Title="Too many matches" Visibility="{Binding IsTruncated, Converter={StaticResource BoolToVisibility}}" />
+
+      <controls:EmptyState Grid.Row="1" Description="Type a word, a phrase or a regular expression and press Enter. Limit the search with “Files to include”."
+                           Icon="DocumentSearch24" Title="Search the project"
+                           Visibility="{Binding ShowIntro, Converter={StaticResource BoolToVisibility}}" />
+
+      <controls:EmptyState Grid.Row="1" AutomationProperties.AutomationId="Files.SearchNoResults" ActionCommand="{Binding ClearCommand}" ActionText="Clear search"
+                           Description="Check the spelling, turn off Match case or Whole word, or widen the files to include." Icon="SearchInfo20"
+                           Title="No results" Visibility="{Binding ShowNoResults, Converter={StaticResource BoolToVisibility}}" />
+
+      <controls:ErrorPanel Grid.Row="1" Margin="16,0,12,0" Error="{Binding Error}" RetryCommand="{Binding SearchCommand}" />
+
+      <ListBox x:Name="Results" Grid.Row="1" Margin="12,0,4,8" AutomationProperties.AutomationId="Files.SearchResults" AutomationProperties.Name="Search results"
+               ItemContainerStyle="{StaticResource FilesSearchRowStyle}" ItemsSource="{Binding Rows}" KeyDown="OnResultsKeyDown"
+               SelectionChanged="OnResultSelected" SelectionMode="Single" Style="{StaticResource ForgeDenseListBoxStyle}"
+               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.VirtualizationMode="Recycling"
+               Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+  </Grid>
+</UserControl>

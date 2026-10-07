@@ -1,8 +1,16 @@
 <!--
-  Terminal feature: implicit DataTemplates that map its view models to views, for example
-  <DataTemplate DataType="{x:Type vm:SomeViewModel}"><views:SomeView /></DataTemplate>
-  Merged by App.xaml.
+  Terminal feature: the Terminal tab of the project workspace (TerminalSectionViewModel), hosting
+  one Windows Terminal control per session. Merged by App.xaml.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:terminal="clr-namespace:ForgeDesk.App.Features.Terminal"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.Terminal;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Features/Terminal/TerminalStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:TerminalSectionViewModel}">
+    <terminal:TerminalSectionView />
+  </DataTemplate>
 </ResourceDictionary>
