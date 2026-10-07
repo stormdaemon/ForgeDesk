@@ -18,6 +18,7 @@ internal sealed class ProjectStatusService : IProjectStatusService
 {
     public const int MaxTechnologies = 6;
     private const int RecentRunsConsidered = 5;
+    private const int MaxRelocationRetries = 2;
 
     // Most telling first: "React · Vite" says more than "npm · ESLint".
     private static readonly TechnologyKind[] TechnologyPriority =
@@ -118,15 +119,30 @@ internal sealed class ProjectStatusService : IProjectStatusService
     {
         try
         {
-            var snapshot = await ComputeAsync(project, refresh.IncludeRemote, refresh.Cancellation.Token).ConfigureAwait(false);
-            try
+            ProjectSnapshot snapshot;
+            for (var attempt = 0; ; attempt++)
             {
-                await _registry.SaveSnapshotAsync(snapshot, refresh.Cancellation.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // The fresh snapshot is still worth showing even if it could not be cached.
-                _logger.LogWarning(ex, "Could not cache the snapshot of project {ProjectId}", project.Id);
+                snapshot = await ComputeAsync(project, refresh.IncludeRemote, refresh.Cancellation.Token).ConfigureAwait(false);
+                try
+                {
+                    await _registry.SaveSnapshotAsync(snapshot, refresh.Cancellation.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The fresh snapshot is still worth showing even if it could not be cached.
+                    _logger.LogWarning(ex, "Could not cache the snapshot of project {ProjectId}", project.Id);
+                }
+
+                // A relocation committed while computing (or a caller holding an outdated Project) would
+                // leave a snapshot of the old folder cached over the one RelocateAsync cleared. Checked
+                // after saving: a relocation committed after this check clears the cache itself.
+                var current = await TryGetRegisteredAsync(project.Id, refresh.Cancellation.Token).ConfigureAwait(false);
+                if (current is null || string.Equals(current.Path, project.Path, StringComparison.Ordinal) || attempt >= MaxRelocationRetries)
+                {
+                    break;
+                }
+
+                project = current;
             }
 
             Forget(project.Id, refresh);
@@ -144,6 +160,19 @@ internal sealed class ProjectStatusService : IProjectStatusService
         {
             Forget(project.Id, refresh);
             refresh.Completion.TrySetException(ex);
+        }
+    }
+
+    private async Task<Project?> TryGetRegisteredAsync(string projectId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _registry.GetAsync(projectId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not re-read project {ProjectId} before caching its snapshot", projectId);
+            return null;
         }
     }
 

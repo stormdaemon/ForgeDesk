@@ -118,5 +118,40 @@ internal static class Schema
         );
         CREATE INDEX ix_custom_commands_project ON custom_commands(project_id);
         """,
+        // v2 — timestamps were partly written with the local offset ("2026-01-01 12:00:00+02:00"),
+        // which breaks TEXT ordering and comparisons. Rewrite them as UTC round-trip text, the
+        // format every write now uses ("2026-01-01T10:00:00.0000000+00:00").
+        """
+        UPDATE projects SET added_at = strftime('%Y-%m-%dT%H:%M:%f', added_at) || '0000+00:00'
+            WHERE added_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', added_at) IS NOT NULL;
+        UPDATE projects SET last_opened_at = strftime('%Y-%m-%dT%H:%M:%f', last_opened_at) || '0000+00:00'
+            WHERE last_opened_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', last_opened_at) IS NOT NULL;
+        UPDATE projects SET profile_at = strftime('%Y-%m-%dT%H:%M:%f', profile_at) || '0000+00:00'
+            WHERE profile_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', profile_at) IS NOT NULL;
+        UPDATE projects SET snapshot_at = strftime('%Y-%m-%dT%H:%M:%f', snapshot_at) || '0000+00:00'
+            WHERE snapshot_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', snapshot_at) IS NOT NULL;
+        UPDATE projects SET health_at = strftime('%Y-%m-%dT%H:%M:%f', health_at) || '0000+00:00'
+            WHERE health_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', health_at) IS NOT NULL;
+        UPDATE work_items SET created_at = strftime('%Y-%m-%dT%H:%M:%f', created_at) || '0000+00:00'
+            WHERE created_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', created_at) IS NOT NULL;
+        UPDATE work_items SET updated_at = strftime('%Y-%m-%dT%H:%M:%f', updated_at) || '0000+00:00'
+            WHERE updated_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', updated_at) IS NOT NULL;
+        UPDATE work_items SET completed_at = strftime('%Y-%m-%dT%H:%M:%f', completed_at) || '0000+00:00'
+            WHERE completed_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', completed_at) IS NOT NULL;
+        UPDATE work_items SET due_at = strftime('%Y-%m-%dT%H:%M:%f', due_at) || '0000+00:00'
+            WHERE due_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', due_at) IS NOT NULL;
+        UPDATE work_item_links SET created_at = strftime('%Y-%m-%dT%H:%M:%f', created_at) || '0000+00:00'
+            WHERE created_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', created_at) IS NOT NULL;
+        UPDATE work_item_events SET at = strftime('%Y-%m-%dT%H:%M:%f', at) || '0000+00:00'
+            WHERE at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', at) IS NOT NULL;
+        UPDATE activity SET at = strftime('%Y-%m-%dT%H:%M:%f', at) || '0000+00:00'
+            WHERE at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', at) IS NOT NULL;
+        UPDATE runs SET started_at = strftime('%Y-%m-%dT%H:%M:%f', started_at) || '0000+00:00'
+            WHERE started_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', started_at) IS NOT NULL;
+        UPDATE runs SET ended_at = strftime('%Y-%m-%dT%H:%M:%f', ended_at) || '0000+00:00'
+            WHERE ended_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', ended_at) IS NOT NULL;
+        UPDATE custom_commands SET created_at = strftime('%Y-%m-%dT%H:%M:%f', created_at) || '0000+00:00'
+            WHERE created_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9]+00:00' AND strftime('%Y-%m-%dT%H:%M:%f', created_at) IS NOT NULL;
+        """,
     ];
 }

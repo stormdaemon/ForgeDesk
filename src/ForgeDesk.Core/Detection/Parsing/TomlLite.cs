@@ -63,9 +63,14 @@ internal sealed partial class TomlLite
             {
                 var delimiter = value[..3];
                 var builder = new StringBuilder(value);
-                while (CountOccurrences(builder.ToString(), delimiter) < 2 && i + 1 < lines.Length)
+
+                // Counted per appended line (a delimiter cannot span a line break), so the scan stays linear.
+                var delimiters = CountOccurrences(value, delimiter);
+                while (delimiters < 2 && i + 1 < lines.Length)
                 {
-                    builder.Append('\n').Append(lines[++i]);
+                    var next = lines[++i];
+                    builder.Append('\n').Append(next);
+                    delimiters += CountOccurrences(next, delimiter);
                 }
 
                 value = builder.ToString();
@@ -73,9 +78,17 @@ internal sealed partial class TomlLite
             else if (value.StartsWith('['))
             {
                 var builder = new StringBuilder(value);
-                while (BracketBalance(builder.ToString()) > 0 && i + 1 < lines.Length)
+
+                // The bracket scan resumes where it stopped (depth and quote state carried over), so it stays linear.
+                var scan = default(BracketScan);
+                scan.Feed(value);
+                while (scan.Depth > 0 && i + 1 < lines.Length)
                 {
-                    builder.Append('\n').Append(StripComment(lines[++i]));
+                    var next = StripComment(lines[++i]);
+                    builder.Append('\n');
+                    scan.Feed("\n");
+                    builder.Append(next);
+                    scan.Feed(next);
                 }
 
                 value = builder.ToString();
@@ -240,39 +253,47 @@ internal sealed partial class TomlLite
         return -1;
     }
 
-    private static int BracketBalance(string text)
+    /// <summary>Bracket depth of text fed piece by piece, ignoring brackets inside quoted strings.</summary>
+    private struct BracketScan
     {
-        var depth = 0;
-        char? quote = null;
-        for (var i = 0; i < text.Length; i++)
+        private char? _quote;
+        private bool _escaped;
+
+        public int Depth { get; private set; }
+
+        public void Feed(string text)
         {
-            var c = text[i];
-            if (quote is not null)
+            foreach (var c in text)
             {
-                if (c == '\\' && quote == '"')
+                if (_escaped)
                 {
-                    i++;
+                    _escaped = false;
                 }
-                else if (c == quote)
+                else if (_quote is not null)
                 {
-                    quote = null;
+                    if (c == '\\' && _quote == '"')
+                    {
+                        _escaped = true;
+                    }
+                    else if (c == _quote)
+                    {
+                        _quote = null;
+                    }
                 }
-            }
-            else if (c is '"' or '\'')
-            {
-                quote = c;
-            }
-            else if (c == '[')
-            {
-                depth++;
-            }
-            else if (c == ']')
-            {
-                depth--;
+                else if (c is '"' or '\'')
+                {
+                    _quote = c;
+                }
+                else if (c == '[')
+                {
+                    Depth++;
+                }
+                else if (c == ']')
+                {
+                    Depth--;
+                }
             }
         }
-
-        return depth;
     }
 
     private static int CountOccurrences(string text, string value)

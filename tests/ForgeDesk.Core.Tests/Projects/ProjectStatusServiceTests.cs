@@ -105,6 +105,21 @@ public sealed class ProjectStatusServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Refresh_started_before_a_relocation_does_not_cache_the_old_location()
+    {
+        var stale = _project with { Path = _folder.Combine("moved-away") };
+        _registry.GetAsync("p1", Arg.Any<CancellationToken>()).Returns(_project);
+        var saved = new List<ProjectSnapshot>();
+        await _registry.SaveSnapshotAsync(Arg.Do<ProjectSnapshot>(saved.Add), Arg.Any<CancellationToken>());
+
+        var snapshot = await _service.RefreshAsync(stale, cancellationToken: Ct);
+
+        snapshot.FolderExists.Should().BeTrue();
+        saved.Should().NotBeEmpty();
+        saved[^1].FolderExists.Should().BeTrue("the last cached snapshot must describe the relocated folder");
+    }
+
+    [Fact]
     public async Task Missing_folder_is_critical_and_git_is_not_queried()
     {
         var moved = _project with { Path = _folder.Combine("moved-away") };
