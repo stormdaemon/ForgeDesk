@@ -198,7 +198,10 @@ internal static partial class GitHubMapper
         asset.Size,
         asset.DownloadCount,
         asset.BrowserDownloadUrl,
-        asset.ContentType ?? "application/octet-stream");
+        asset.ContentType ?? "application/octet-stream")
+    {
+        State = string.IsNullOrEmpty(asset.State) ? GitHubReleaseAsset.UploadedState : asset.State,
+    };
 
     public static GitHubTag ToTag(RepositoryTag tag) => new(tag.Name, tag.Commit?.Sha ?? string.Empty);
 

@@ -193,14 +193,14 @@ internal sealed class ReleaseService : IReleaseService
             await RunStepAsync(run, validate, () => ValidateAsync(run, cancellationToken), cancellationToken).ConfigureAwait(false)
             && await RunStepAsync(run, createTag, () => CreateTagAsync(run, cancellationToken), cancellationToken).ConfigureAwait(false)
             && await RunStepAsync(run, pushTag, () => PushTagAsync(run, cancellationToken), cancellationToken).ConfigureAwait(false)
-            && await RunStepAsync(run, createRelease, () => CreateReleaseAsync(run, cancellationToken), cancellationToken).ConfigureAwait(false);
+            && await RunStepAsync(run, createRelease, () => CreateReleaseAsync(run), cancellationToken).ConfigureAwait(false);
 
         foreach (var (assetPath, step) in uploads)
         {
             succeeded = succeeded && await RunStepAsync(run, step, () => UploadAssetAsync(run, step, assetPath, cancellationToken), cancellationToken).ConfigureAwait(false);
         }
 
-        succeeded = succeeded && await RunStepAsync(run, publish, () => PublishAsync(run, cancellationToken), cancellationToken).ConfigureAwait(false);
+        succeeded = succeeded && await RunStepAsync(run, publish, () => PublishAsync(run), cancellationToken).ConfigureAwait(false);
 
         return succeeded
             ? await CompleteAsync(run).ConfigureAwait(false)
@@ -297,6 +297,9 @@ internal sealed class ReleaseService : IReleaseService
         run.TargetSha = await ResolveTargetAsync(run, cancellationToken).ConfigureAwait(false);
         run.RemoteName = await ResolveRemoteNameAsync(run, cancellationToken).ConfigureAwait(false);
 
+        // Drafts, assets and tags may have been fixed by hand on github.com since they were cached:
+        // release decisions always use fresh data.
+        _github.InvalidateCache(run.Repository);
         var releases = await _github.GetReleasesAsync(run.Repository, 100, cancellationToken).ConfigureAwait(false);
         var existing = releases.FirstOrDefault(r => string.Equals(r.TagName, plan.TagName, StringComparison.Ordinal));
         if (existing is { IsDraft: false })
@@ -308,11 +311,15 @@ internal sealed class ReleaseService : IReleaseService
 
         var remoteTags = await _github.GetTagsAsync(run.Repository, cancellationToken).ConfigureAwait(false);
         var remoteTag = remoteTags.FirstOrDefault(t => string.Equals(t.Name, plan.TagName, StringComparison.Ordinal));
-        if (remoteTag is not null && plan.CreateAndPushTag && !ShaMatches(remoteTag.Sha, run.TargetSha))
+        // Also without tag creation: GitHub ignores the release's target when the tag exists, so
+        // the release would silently be attached to the tag's commit.
+        if (remoteTag is not null && !ShaMatches(remoteTag.Sha, run.TargetSha))
         {
             throw new ForgeException(ErrorKind.AlreadyExists,
                 $"The tag {plan.TagName} already exists on GitHub and points to another commit.",
-                "Choose a new version number, or delete the tag on GitHub first.");
+                plan.CreateAndPushTag
+                    ? "Choose a new version number, or delete the tag on GitHub first."
+                    : $"GitHub would publish the release on that existing tag. Release commit {Short(remoteTag.Sha)} instead, choose a new version number, or delete the tag on GitHub first.");
         }
 
         // A tag at the right commit and a draft release are what a previous, interrupted attempt leaves behind.
@@ -330,6 +337,7 @@ internal sealed class ReleaseService : IReleaseService
         {
             var name = Path.GetFileName(asset);
             var file = new FileInfo(asset);
+            var key = AssetNameKey(name);
             if (!Path.IsPathFullyQualified(asset) || !file.Exists)
             {
                 throw new ForgeException(ErrorKind.PathNotFound, $"The asset {name} was not found.", "Build it again, or remove it from the release.", asset);
@@ -341,9 +349,12 @@ internal sealed class ReleaseService : IReleaseService
                     "Release assets must be smaller than 2 GB.");
             }
 
-            if (!names.Add(name))
+            if (!names.Add(key))
             {
-                throw new ForgeException(ErrorKind.InvalidInput, $"Two assets are named {name}.", "Rename one of them: asset names must be unique.");
+                // GitHub replaces spaces and special characters with dots: "a b.zip" and "a.b.zip" collide.
+                throw new ForgeException(ErrorKind.InvalidInput,
+                    string.Equals(key, name, StringComparison.OrdinalIgnoreCase) ? $"Two assets are named {name}." : $"Two assets are named {key} on GitHub.",
+                    "Rename one of them: asset names must be unique.");
             }
         }
     }
@@ -392,15 +403,29 @@ internal sealed class ReleaseService : IReleaseService
         return StepOutcome.Done($"Pushed to {run.RemoteName ?? "origin"}");
     }
 
-    private async Task<StepOutcome> CreateReleaseAsync(ReleaseRun run, CancellationToken cancellationToken)
+    private async Task<StepOutcome> CreateReleaseAsync(ReleaseRun run)
     {
+        var plan = run.Plan;
+
+        // Writes are not abandoned on cancellation: GitHub would still complete them, unknown to this run.
+        // Cancellation is honored between steps instead.
         if (run.ExistingDraft is { } draft)
         {
-            run.Release = draft;
-            return StepOutcome.Skip("Reusing the draft release from the previous attempt");
-        }
+            // The draft keeps the target, title, notes and flags of the earlier attempt: apply the
+            // plan the user confirmed now, or the published release would not match it.
+            var updated = await _github.UpdateReleaseAsync(run.Repository!, draft.Id, new ReleaseChanges
+            {
+                Name = plan.Title,
+                Body = plan.Notes ?? string.Empty,
+                TargetCommitish = plan.CreateAndPushTag ? null : run.TargetSha,
+                Prerelease = plan.Prerelease,
+                MakeLatest = !plan.Prerelease,
+            }, CancellationToken.None).ConfigureAwait(false);
 
-        var plan = run.Plan;
+            // The edit response may omit assets on some API versions: keep the listed ones.
+            run.Release = updated.Assets.Count == 0 && draft.Assets.Count > 0 ? updated with { Assets = draft.Assets } : updated;
+            return StepOutcome.Done("Updated the draft release from the previous attempt");
+        }
 
         // With assets, the release stays a draft until every file is uploaded: a half-uploaded
         // release must never be public.
@@ -414,7 +439,7 @@ internal sealed class ReleaseService : IReleaseService
             Draft = asDraft,
             Prerelease = plan.Prerelease,
             MakeLatest = !plan.Prerelease,
-        }, cancellationToken).ConfigureAwait(false);
+        }, CancellationToken.None).ConfigureAwait(false);
         return StepOutcome.Done(asDraft ? "Created as a draft" : "Created");
     }
 
@@ -423,17 +448,26 @@ internal sealed class ReleaseService : IReleaseService
         var release = run.Release!;
         var name = Path.GetFileName(assetPath);
         var size = new FileInfo(assetPath).Length;
-        var existing = release.Assets.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+        // GitHub lists renamed names ("My App.zip" is stored as "My.App.zip").
+        var key = AssetNameKey(name);
+        var existing = release.Assets.FirstOrDefault(a => string.Equals(AssetNameKey(a.Name), key, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
         {
-            if (existing.Size == size)
+            if (!existing.IsUploaded)
+            {
+                // What an interrupted upload leaves behind: it holds the name but has no usable file.
+                await _github.DeleteReleaseAssetAsync(run.Repository!, existing.Id, cancellationToken).ConfigureAwait(false);
+            }
+            else if (existing.Size == size)
             {
                 return StepOutcome.Skip("Already uploaded");
             }
-
-            throw new ForgeException(ErrorKind.AlreadyExists,
-                $"The draft release already has a different file named {name}.",
-                "Delete that asset from the draft on GitHub, then retry.");
+            else
+            {
+                throw new ForgeException(ErrorKind.AlreadyExists,
+                    $"The draft release already has a different file named {existing.Name}.",
+                    "Delete that asset from the draft on GitHub, then retry.");
+            }
         }
 
         var reporter = new UploadProgress(run.Timeline, step);
@@ -441,7 +475,7 @@ internal sealed class ReleaseService : IReleaseService
         return StepOutcome.Done(PathUtil.FormatBytes(size));
     }
 
-    private async Task<StepOutcome> PublishAsync(ReleaseRun run, CancellationToken cancellationToken)
+    private async Task<StepOutcome> PublishAsync(ReleaseRun run)
     {
         var release = run.Release!;
         if (run.Plan.Draft)
@@ -454,7 +488,8 @@ internal sealed class ReleaseService : IReleaseService
             return StepOutcome.Done("Published");
         }
 
-        run.Release = await _github.PublishReleaseAsync(run.Repository!, release.Id, cancellationToken).ConfigureAwait(false);
+        // Not abandoned on cancellation: GitHub would publish anyway (see CreateReleaseAsync).
+        run.Release = await _github.PublishReleaseAsync(run.Repository!, release.Id, CancellationToken.None).ConfigureAwait(false);
         return StepOutcome.Done("Published");
     }
 
@@ -513,6 +548,12 @@ internal sealed class ReleaseService : IReleaseService
         if (run.Release is { IsDraft: true })
         {
             error += $" The draft release {tag} was kept on GitHub: run the release again to resume it, or delete the draft there.";
+        }
+        else if (run.Release is { IsDraft: false })
+        {
+            error += run.Cancelled
+                ? $" Release {tag} was published on GitHub before the cancellation took effect."
+                : $" Release {tag} is published on GitHub.";
         }
         else if (run.TagCreated && run.Release is null)
         {
@@ -619,6 +660,27 @@ internal sealed class ReleaseService : IReleaseService
     private static bool ShaMatches(string? a, string? b) =>
         !string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(b) && Math.Min(a.Length, b.Length) >= 7
         && (a.StartsWith(b, StringComparison.OrdinalIgnoreCase) || b.StartsWith(a, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The name GitHub gives an uploaded asset: characters other than letters, digits, '.', '-'
+    /// and '_' become dots, and leading or trailing dots are dropped. Runs of dots are collapsed so
+    /// a local name and the stored one compare equal whichever way GitHub handled them.
+    /// </summary>
+    internal static string AssetNameKey(string name)
+    {
+        var builder = new System.Text.StringBuilder(name.Length);
+        foreach (var c in name)
+        {
+            var mapped = char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '.';
+            if (mapped != '.' || builder.Length == 0 || builder[^1] != '.')
+            {
+                builder.Append(mapped);
+            }
+        }
+
+        var key = builder.ToString().Trim('.');
+        return key.Length == 0 ? name : key;
+    }
 
     private static string TagPrefixOf(string tagName) => char.IsAsciiLetter(tagName[0]) ? tagName[..1] : string.Empty;
 
