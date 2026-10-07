@@ -58,7 +58,9 @@ internal sealed partial class GitService
 
         try
         {
-            if (intentToAdd && await ReadDiffAsync(repository, ["diff", .. DiffOptions], [path], path, cancellationToken).ConfigureAwait(false) is { } fresh)
+            if (intentToAdd && await ReadDiffAsync(repository, ["diff", .. DiffOptions], [path], path, cancellationToken,
+                    // The user is staging: run the repository's own clean filters exactly as `git add` would.
+                    GitCommandKind.Write).ConfigureAwait(false) is { } fresh)
             {
                 source = diff with { HeaderLines = fresh.HeaderLines };
 

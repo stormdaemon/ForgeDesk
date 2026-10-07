@@ -79,12 +79,12 @@ internal sealed partial class GitService
     /// text would lose the CR of CR LF lines. The file size is checked before anything is loaded.
     /// </summary>
     private async Task<FileDiff?> ReadDiffAsync(string repository, IReadOnlyList<string> arguments, IReadOnlyList<string> paths, string wantedPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, GitCommandKind kind = GitCommandKind.Read)
     {
         var outputFile = Path.Combine(Path.GetTempPath(), $"forgedesk-diff-{Guid.NewGuid():N}.patch");
         try
         {
-            var result = await RunAsync(repository, [.. arguments, "--output=" + outputFile, "--", .. paths.Select(GitArguments.Pathspec)], cancellationToken)
+            var result = await RunAsync(repository, [.. arguments, "--output=" + outputFile, "--", .. paths.Select(GitArguments.Pathspec)], cancellationToken, kind)
                 .ConfigureAwait(false);
             var info = new FileInfo(outputFile);
             byte[] bytes;
