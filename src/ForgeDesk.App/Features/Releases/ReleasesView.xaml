@@ -1,0 +1,227 @@
+<UserControl x:Class="ForgeDesk.App.Features.Releases.ReleasesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:github="clr-namespace:ForgeDesk.App.Features.GitHub"
+             xmlns:releases="clr-namespace:ForgeDesk.App.Features.Releases"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Releases;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ReleasesViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1100"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Releases.Section"
+             Focusable="False">
+  <UserControl.Resources>
+    <!-- A release: title, state pills, tag and date, assets, expandable notes. -->
+    <DataTemplate x:Key="ReleaseCardTemplate" DataType="{x:Type vm:ReleaseRowViewModel}">
+      <Border Style="{StaticResource ForgeSectionCardStyle}" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+        <Border.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding OpenReleaseCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Open on GitHub" InputGestureText="Enter">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Open16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding ToggleNotesCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Show or hide notes">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="TextBulletListSquare16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CopyLinkCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy link">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Link16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Border.ContextMenu>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <Border Grid.RowSpan="2" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Top" Background="{DynamicResource ForgeAccentSubtleBrush}" CornerRadius="8">
+            <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" Foreground="{DynamicResource ForgeAccentTextBrush}" Symbol="Rocket20" />
+          </Border>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeSubtitle}" Text="{Binding DisplayName}" />
+            <controls:Pill Margin="8,0,0,0" Kind="Success" Text="Latest" Visibility="{Binding IsLatest, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="8,0,0,0" Kind="Warning" Text="Pre-release" Visibility="{Binding IsPrerelease, Converter={StaticResource BoolToVisibility}}" />
+            <controls:Pill Margin="8,0,0,0" Kind="Neutral" Text="Draft" Visibility="{Binding IsDraft, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+
+          <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,4,0,0" Orientation="Horizontal">
+            <Border Margin="0,0,8,0" Style="{StaticResource ReleaseTagPillStyle}">
+              <TextBlock Text="{Binding TagName}" />
+            </Border>
+            <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}">
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource RelativeTime}">
+                  <Binding Path="Date" />
+                  <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
+            <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Author, StringFormat=by {0}}"
+                       Visibility="{Binding HasAuthor, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding AssetsSummary, StringFormat=· {0}}" />
+          </WrapPanel>
+
+          <StackPanel Grid.RowSpan="2" Grid.Column="2" VerticalAlignment="Top" Orientation="Horizontal">
+            <ui:Button AutomationProperties.Name="Open on GitHub" Command="{Binding DataContext.OpenReleaseCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                       CommandParameter="{Binding}" Icon="{ui:SymbolIcon Open16}" Style="{StaticResource ReleasesIconButtonStyle}" ToolTip="Open on GitHub" />
+            <ui:Button AutomationProperties.Name="Copy link" Command="{Binding DataContext.CopyLinkCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                       CommandParameter="{Binding}" Icon="{ui:SymbolIcon Link16}" Style="{StaticResource ReleasesIconButtonStyle}" ToolTip="Copy link" />
+          </StackPanel>
+
+          <!-- Assets -->
+          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,12,0,0" Focusable="False" ItemsSource="{Binding Assets}"
+                        Visibility="{Binding HasAssets, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:ReleaseAssetViewModel}">
+                <Button AutomationProperties.Name="{Binding ToolTip}" Command="{Binding DataContext.OpenAssetCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                        CommandParameter="{Binding}" Style="{StaticResource ReleaseAssetButtonStyle}" ToolTip="{Binding ToolTip}">
+                  <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource ForgeInfoBrush}" Symbol="ArrowDownload16" />
+                    <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeMono}" Text="{Binding Name}" />
+                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding SizeText}" />
+                    <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding DownloadsText, StringFormat=· {0}}" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Notes -->
+          <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Visibility="{Binding HasNotes, Converter={StaticResource BoolToVisibility}}">
+            <Button HorizontalAlignment="Left" AutomationProperties.Name="Show or hide the release notes"
+                    Command="{Binding DataContext.ToggleNotesCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                    Style="{StaticResource ReleaseLinkButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon x:Name="NotesChevron" Margin="0,0,4,0" VerticalAlignment="Center" FontSize="12" Symbol="ChevronRight16" />
+                <TextBlock x:Name="NotesToggleText" VerticalAlignment="Center" FontSize="12" Text="Show release notes" />
+              </StackPanel>
+            </Button>
+            <Border x:Name="Notes" Margin="0,8,0,0" Padding="16,12" Background="{DynamicResource SubtleFillColorTertiaryBrush}" CornerRadius="6" Visibility="Collapsed">
+              <github:MarkdownViewer BaseUrl="{Binding HtmlUrl}" LinkCommand="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                     Markdown="{Binding Notes}" />
+            </Border>
+          </StackPanel>
+        </Grid>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+          <Setter TargetName="Notes" Property="Visibility" Value="Visible" />
+          <Setter TargetName="NotesChevron" Property="Symbol" Value="ChevronDown16" />
+          <Setter TargetName="NotesToggleText" Property="Text" Value="Hide release notes" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <!-- ===== List ===== -->
+    <Grid Visibility="{Binding IsListVisible, Converter={StaticResource BoolToVisibility}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Margin="24,16,24,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeTitle}" Text="Releases" />
+          <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="{Binding RepositoryName}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+          <ui:Button Margin="0,0,8,0" AutomationProperties.AutomationId="Releases.OpenOnGitHubButton" AutomationProperties.Name="Open the releases on GitHub"
+                     Command="{Binding OpenRepositoryOnGitHubCommand}" Icon="{ui:SymbolIcon Open16}" Style="{StaticResource ForgeIconButtonStyle}"
+                     ToolTip="Open the repository on GitHub" />
+          <ui:Button Appearance="Primary" AutomationProperties.AutomationId="Releases.NewReleaseButton" Command="{Binding NewReleaseCommand}" Content="New release…"
+                     Icon="{ui:SymbolIcon Rocket16}" ToolTip="Tag a version and publish it on GitHub" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Local tags without a release -->
+      <Border Grid.Row="1" Margin="24,0,24,12" Padding="12,10" AutomationProperties.AutomationId="Releases.UnreleasedTagsHint" Background="{DynamicResource ForgeInfoSubtleBrush}"
+              CornerRadius="6" Visibility="{Binding HasUnreleasedTags, Converter={StaticResource BoolToVisibility}}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Center" FontSize="16" Foreground="{DynamicResource ForgeInfoBrush}" Symbol="Tag16" />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding UnreleasedTagsText}" TextWrapping="Wrap" />
+          <ItemsControl Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Focusable="False" ItemsSource="{Binding UnreleasedTags}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Margin="8,0,0,0" Command="{Binding DataContext.ReleaseTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                        Style="{StaticResource ReleaseLinkButtonStyle}" ToolTip="Create a GitHub release for this tag">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding StringFormat=Release {0}}" />
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="2">
+        <ListBox x:Name="List" AutomationProperties.AutomationId="Releases.List" AutomationProperties.Name="Releases" ItemContainerStyle="{StaticResource ReleaseCardItemStyle}"
+                 ItemTemplate="{StaticResource ReleaseCardTemplate}" ItemsSource="{Binding Releases}" PreviewKeyDown="OnListKeyDown" SelectionMode="Single"
+                 Style="{StaticResource ForgeDenseListBoxStyle}" />
+        <controls:SkeletonList Margin="16,0" IsActive="{Binding IsLoading}" RowCount="5" RowHeight="96" ShowIcons="True"
+                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+        <controls:ErrorPanel Margin="24" AutomationProperties.AutomationId="Releases.Error" Error="{Binding Error}" RetryCommand="{Binding ReloadCommand}" />
+        <controls:EmptyState AutomationProperties.AutomationId="Releases.EmptyState" Icon="Rocket24" Title="No releases yet"
+                             Description="A release names a version of the project, with notes and files to download. ForgeDesk tags the commit and publishes it on GitHub."
+                             ActionText="Create your first release" ActionCommand="{Binding NewReleaseCommand}"
+                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+      </Grid>
+    </Grid>
+
+    <!-- ===== Wizard (full height, in place of the list) ===== -->
+    <ContentPresenter Content="{Binding Wizard}" Visibility="{Binding IsWizardOpen, Converter={StaticResource BoolToVisibility}}" />
+
+    <!-- ===== Preconditions ===== -->
+    <controls:EmptyState AutomationProperties.AutomationId="Releases.NotLinkedState" Icon="LinkSquare24" Title="This project isn't linked to a GitHub repository"
+                         Description="{Binding NotLinkedDescription}" ActionText="Re-detect" ActionCommand="{Binding RedetectCommand}"
+                         Visibility="{Binding IsNotLinked, Converter={StaticResource BoolToVisibility}}" />
+    <controls:EmptyState AutomationProperties.AutomationId="Releases.SignedOutState" Icon="PersonCircle24" Title="Sign in to GitHub to publish releases"
+                         Description="{Binding SignedOutDescription}" ActionText="Sign in to GitHub" ActionCommand="{Binding SignInCommand}"
+                         Visibility="{Binding IsSignedOut, Converter={StaticResource BoolToVisibility}}" />
+    <controls:EmptyState AutomationProperties.AutomationId="Releases.DisabledState" Icon="PlugDisconnected24" Title="GitHub features are off"
+                         Description="{Binding DisabledDescription}" ActionText="Turn GitHub features on" ActionCommand="{Binding EnableGitHubCommand}"
+                         Visibility="{Binding IsDisabled, Converter={StaticResource BoolToVisibility}}" />
+  </Grid>
+</UserControl>

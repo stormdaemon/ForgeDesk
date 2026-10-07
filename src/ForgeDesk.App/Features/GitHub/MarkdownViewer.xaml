@@ -1,0 +1,19 @@
+<UserControl x:Class="ForgeDesk.App.Features.GitHub.MarkdownViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Focusable="False">
+  <!--
+    Read-only rendered Markdown. Not scrollable by default: it grows with its content inside the
+    scrolling pane that hosts it (the mouse wheel is forwarded to that pane).
+  -->
+  <FlowDocumentScrollViewer x:Name="Viewer"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            HorizontalScrollBarVisibility="Disabled"
+                            IsToolBarVisible="False"
+                            SelectionBrush="{DynamicResource ForgeAccentBrush}"
+                            SelectionOpacity="0.35"
+                            VerticalScrollBarVisibility="Disabled" />
+</UserControl>

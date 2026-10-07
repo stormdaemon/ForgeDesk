@@ -1,8 +1,21 @@
 <!--
-  Releases feature: implicit DataTemplates that map its view models to views, for example
-  <DataTemplate DataType="{x:Type vm:SomeViewModel}"><views:SomeView /></DataTemplate>
-  Merged by App.xaml.
+  Releases feature: the Releases tab of the project workspace (ReleasesViewModel) and its "New
+  release" wizard (shown in place of the list). Merged by App.xaml. Release notes are rendered by the
+  GitHub feature's MarkdownViewer.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:releases="clr-namespace:ForgeDesk.App.Features.Releases"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.Releases;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Features/Releases/ReleasesStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:ReleasesViewModel}">
+    <releases:ReleasesView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:ReleaseWizardViewModel}">
+    <releases:ReleaseWizardView />
+  </DataTemplate>
 </ResourceDictionary>

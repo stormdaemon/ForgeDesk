@@ -1,8 +1,42 @@
 <!--
-  GitHub feature: implicit DataTemplates that map its view models to views, for example
-  <DataTemplate DataType="{x:Type vm:SomeViewModel}"><views:SomeView /></DataTemplate>
-  Merged by App.xaml.
+  GitHub feature: the GitHub tab of the project workspace (GitHubSectionViewModel), its views
+  (Overview, Pull requests, Issues, Actions) and its dialogs. Merged by App.xaml.
+  MarkdownViewer (Features/GitHub) is also used by the Releases feature.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:github="clr-namespace:ForgeDesk.App.Features.GitHub"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.GitHub;assembly=ForgeDesk.Presentation">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="/ForgeDesk;component/Features/GitHub/GitHubStyles.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <DataTemplate DataType="{x:Type vm:GitHubSectionViewModel}">
+    <github:GitHubSectionView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:GitHubOverviewViewModel}">
+    <github:GitHubOverviewView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:PullRequestsViewModel}">
+    <github:PullRequestsView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:IssuesViewModel}">
+    <github:IssuesView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:ActionsViewModel}">
+    <github:ActionsView />
+  </DataTemplate>
+
+  <!-- Dialogs (hosted by the shared DialogWindow) -->
+  <DataTemplate DataType="{x:Type vm:NewIssueDialogViewModel}">
+    <github:NewIssueDialogView />
+  </DataTemplate>
+
+  <DataTemplate DataType="{x:Type vm:NewPullRequestDialogViewModel}">
+    <github:NewPullRequestDialogView />
+  </DataTemplate>
 </ResourceDictionary>
