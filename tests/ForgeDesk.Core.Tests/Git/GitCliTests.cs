@@ -156,7 +156,7 @@ public sealed class GitCliTests : IDisposable
         var read = GitCli.BuildSpec("git", new GitRequest { WorkingDirectory = _dir.Path, Arguments = ["status", "--porcelain=v2"] }, new Dictionary<string, string?> { ["GIT_CONFIG_GLOBAL"] = "cfg" });
         var write = GitCli.BuildSpec("git", new GitRequest { WorkingDirectory = _dir.Path, Arguments = ["commit", "--file=-"], Kind = GitCommandKind.Write, StandardInput = "msg\n" }, new Dictionary<string, string?>());
 
-        read.Arguments.Should().Equal("-c", "core.quotepath=false", "-c", "color.ui=false", "status", "--porcelain=v2");
+        read.Arguments.Should().Equal("-c", "core.quotepath=false", "-c", "color.ui=false", "-c", "core.fsmonitor=false", "status", "--porcelain=v2");
         read.RawArguments.Should().BeNull();
         read.WorkingDirectory.Should().Be(_dir.Path);
         read.Environment.Should().Contain(new KeyValuePair<string, string?>("GIT_TERMINAL_PROMPT", "0"))
@@ -175,7 +175,7 @@ public sealed class GitCliTests : IDisposable
     {
         var spec = GitCli.BuildSpec("git", new GitRequest { WorkingDirectory = ".", Arguments = ["log"], Config = ["log.showSignature=false"], Kind = GitCommandKind.Network }, new Dictionary<string, string?>());
 
-        spec.Arguments.Should().Equal("-c", "core.quotepath=false", "-c", "color.ui=false", "-c", "log.showSignature=false", "log");
+        spec.Arguments.Should().Equal("-c", "core.quotepath=false", "-c", "color.ui=false", "-c", "core.fsmonitor=false", "-c", "log.showSignature=false", "log");
         spec.Timeout.Should().Be(TimeSpan.FromMinutes(10));
     }
 

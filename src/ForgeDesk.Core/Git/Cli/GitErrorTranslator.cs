@@ -513,7 +513,8 @@ internal static partial class GitErrorTranslator
                                                   || l.StartsWith("error:", StringComparison.OrdinalIgnoreCase)
                                                   || l.StartsWith("remote: error:", StringComparison.OrdinalIgnoreCase))
                    ?? candidates.FirstOrDefault();
-        return line is null ? string.Empty : ToSentence(line);
+        // Hooks inherit git's environment (and so the token header): their output must not leak it into a message.
+        return line is null ? string.Empty : GitRedaction.Redact(ToSentence(line));
     }
 
     private static bool IsMeaningful(string line) =>

@@ -7,7 +7,8 @@ namespace ForgeDesk.Core.Git;
 /// <summary>
 /// Builds the environment that hands credentials from <see cref="IGitCredentialProvider"/>s to git
 /// through GIT_CONFIG_COUNT / GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n, so secrets never appear on a
-/// command line (visible to every process on the machine) nor in any config file.
+/// command line (visible to every process on the machine) nor in any config file. Programs git starts
+/// (hooks) inherit that environment, so whatever they print goes through <see cref="GitRedaction"/>.
 /// </summary>
 internal static class GitCredentialEnvironment
 {
@@ -28,22 +29,33 @@ internal static class GitCredentialEnvironment
             return ToEnvironment(entries, inheritedConfigCount);
         }
 
-        var scopes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var url in remoteUrls)
+        var urls = remoteUrls.ToList();
+        // URLs carrying their own password are left to git: a header covering them would replace those credentials.
+        var ownCredentials = urls.Where(HasPassword).ToList();
+        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var url in urls)
         {
             var scope = HttpScope(url);
-            if (scope is null || !scopes.Add(scope))
+            if (scope is null || HasPassword(url))
+            {
+                continue;
+            }
+
+            // The whole host when possible (submodules on the same host authenticate too), only this
+            // remote's URL when another remote of the command on that host has its own credentials.
+            var target = ownCredentials.Any(other => Covers(scope, other)) ? UrlKey(url) : scope;
+            if (target is null || ownCredentials.Any(other => Covers(target, other)) || targets.Contains(target))
             {
                 continue;
             }
 
             var credential = await ResolveAsync(providers, url, logger, cancellationToken).ConfigureAwait(false);
-            if (credential is null)
+            if (credential is null || !targets.Add(target))
             {
                 continue;
             }
 
-            var key = $"http.{scope}.extraHeader";
+            var key = $"http.{target}.extraHeader";
             // An empty value first clears headers configured elsewhere for this host (a CI checkout, a
             // manual setup…): two Authorization headers make servers reject the request.
             entries.Add(new(key, string.Empty));
@@ -71,6 +83,30 @@ internal static class GitCredentialEnvironment
 
         // Authority excludes the user info and default ports, so "https://token@github.com:443/o/r" → "https://github.com/".
         return $"{uri.Scheme}://{uri.Authority}/";
+    }
+
+    /// <summary>"scheme://host[:port]/path" without user info, query or fragment: the most specific http.&lt;url&gt; key for a remote.</summary>
+    public static string? UrlKey(string remoteUrl) =>
+        HttpScope(remoteUrl) is { } scope && Uri.TryCreate(remoteUrl.Trim(), UriKind.Absolute, out var uri)
+            ? scope + uri.AbsolutePath.TrimStart('/')
+            : null;
+
+    private static bool HasPassword(string remoteUrl) =>
+        HttpScope(remoteUrl) is not null && Uri.TryCreate(remoteUrl.Trim(), UriKind.Absolute, out var uri) && uri.UserInfo.Contains(':', StringComparison.Ordinal);
+
+    /// <summary>True when git applies http.<paramref name="key"/>.* settings to <paramref name="remoteUrl"/> (same origin, path prefix on a segment boundary).</summary>
+    private static bool Covers(string key, string remoteUrl)
+    {
+        if (UrlKey(remoteUrl) is not { } other || HttpScope(key) is not { } keyScope
+            || !other.StartsWith(keyScope, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var keyPath = key[keyScope.Length..];
+        var otherPath = other[keyScope.Length..];
+        return otherPath.StartsWith(keyPath, StringComparison.Ordinal)
+            && (keyPath.Length == 0 || keyPath.EndsWith('/') || otherPath.Length == keyPath.Length || otherPath[keyPath.Length] == '/');
     }
 
     /// <summary>Number of GIT_CONFIG_* entries ForgeDesk itself inherited; ours are appended after them.</summary>

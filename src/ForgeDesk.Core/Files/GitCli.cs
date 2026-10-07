@@ -188,7 +188,8 @@ internal sealed class GitCli(IProcessRunner runner, ISettingsService? settings =
     private ProcessSpec CreateSpec(string workingDirectory, IEnumerable<string> arguments, string? standardInput, TimeSpan? timeout, int maxCapturedChars) => new()
     {
         FileName = Executable ?? throw new ForgeException(ErrorKind.ToolNotFound, "Git is not installed."),
-        Arguments = ["-c", "core.quotepath=false", "-c", "color.ui=false", .. arguments],
+        // core.fsmonitor names a program to run: a repository's own config must never start one during a listing or search.
+        Arguments = ["-c", "core.quotepath=false", "-c", "color.ui=false", "-c", "core.fsmonitor=false", .. arguments],
         WorkingDirectory = workingDirectory,
         Environment = GitEnvironment,
         StandardInput = standardInput,
