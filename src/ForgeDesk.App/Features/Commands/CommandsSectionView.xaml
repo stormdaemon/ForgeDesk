@@ -1,0 +1,313 @@
+<UserControl x:Class="ForgeDesk.App.Features.Commands.CommandsSectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Commands;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CommandsSectionViewModel}"
+             d:DesignHeight="760" d:DesignWidth="1400"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Commands.Section"
+             Focusable="False"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <UserControl.Resources>
+    <!-- ===== Commands list ===== -->
+
+    <DataTemplate DataType="{x:Type vm:CommandGroupHeader}">
+      <StackPanel Margin="2,0,0,4" Orientation="Horizontal" AutomationProperties.AutomationId="{Binding AutomationId}">
+        <ui:SymbolIcon Margin="0,0,6,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+        <TextBlock Style="{StaticResource CommandsGroupTitleStyle}" Text="{Binding Title, Converter={StaticResource UpperCase}}" />
+        <Border Margin="6,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}">
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Count}" />
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:CommandRowViewModel}">
+      <Grid Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="16" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding RunOrStopCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="{Binding PlacementTarget.DataContext.RunButtonText, RelativeSource={RelativeSource AncestorType=ContextMenu}}" InputGestureText="Enter">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="{Binding PlacementTarget.DataContext.RunButtonIcon, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource SymbolFromName}}" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding ShowLatestRunCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Show latest run">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="History16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CopyCommandLineCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy command">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Copy16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator Visibility="{Binding PlacementTarget.DataContext.IsCustom, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Command="{Binding EditCommandCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Edit…" InputGestureText="F2"
+                      Visibility="{Binding PlacementTarget.DataContext.IsCustom, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Edit16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding DeleteCommandCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Delete…" InputGestureText="Del"
+                      Visibility="{Binding PlacementTarget.DataContext.IsCustom, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Delete16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <!-- Last result -->
+        <controls:StatusDot VerticalAlignment="Center" Size="8" Status="{Binding LastResultTone, Converter={StaticResource CommandsToneToKind}}"
+                            ToolTip="{Binding LastResultText}" Visibility="{Binding HasLastResult, Converter={StaticResource BoolToHidden}}" />
+
+        <StackPanel Grid.Column="1" Margin="6,6,8,6" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock MaxWidth="220" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+            <Border Style="{StaticResource CommandsSourcePillStyle}">
+              <TextBlock VerticalAlignment="Center" Text="{Binding Source}" />
+            </Border>
+            <StackPanel Margin="8,0,0,0" Orientation="Horizontal" Visibility="{Binding HasWorkingDirectory, Converter={StaticResource BoolToVisibility}}">
+              <ui:SymbolIcon Margin="0,0,3,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Folder16" />
+              <TextBlock MaxWidth="120" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding WorkingDirectory}" />
+            </StackPanel>
+          </StackPanel>
+          <TextBlock Margin="0,3,0,0" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding CommandLine}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Style="{StaticResource CommandsRowActionsStyle}">
+          <ui:Button AutomationProperties.Name="Copy command" Command="{Binding DataContext.CopyCommandLineCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                     Icon="{ui:SymbolIcon Copy16}" Style="{StaticResource CommandsRowButtonStyle}" ToolTip="Copy the command line" />
+          <ui:Button AutomationProperties.Name="Edit command" Command="{Binding DataContext.EditCommandCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                     Icon="{ui:SymbolIcon Edit16}" Style="{StaticResource CommandsRowButtonStyle}" ToolTip="Edit… (F2)"
+                     Visibility="{Binding IsCustom, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.Name="Delete command" Command="{Binding DataContext.DeleteCommandCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                     Icon="{ui:SymbolIcon Delete16}" Style="{StaticResource CommandsRowButtonStyle}" ToolTip="Delete… (Del)"
+                     Visibility="{Binding IsCustom, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <!-- ▶ Run / ■ Stop -->
+        <ui:Button Grid.Column="3" AutomationProperties.AutomationId="{Binding RunButtonAutomationId}" AutomationProperties.Name="{Binding RunButtonToolTip}"
+                   Command="{Binding DataContext.RunOrStopCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}"
+                   IsEnabled="{Binding IsStarting, Converter={StaticResource CommandsInverseBoolean}}" Style="{StaticResource CommandsRunButtonStyle}"
+                   ToolTip="{Binding RunButtonToolTip}">
+          <StackPanel Orientation="Horizontal">
+            <ui:SymbolIcon x:Name="RunGlyph" Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14" Filled="True"
+                           Foreground="{DynamicResource ForgeAccentBrush}" Symbol="{Binding RunButtonIcon, Converter={StaticResource SymbolFromName}}" />
+            <TextBlock VerticalAlignment="Center" FontSize="12" Text="{Binding RunButtonText}" />
+          </StackPanel>
+        </ui:Button>
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+          <Setter TargetName="RunGlyph" Property="Foreground" Value="{DynamicResource ForgeDangerBrush}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- ===== Runs list ===== -->
+
+    <DataTemplate DataType="{x:Type vm:RunGroupHeader}">
+      <StackPanel Margin="2,0,0,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource CommandsGroupTitleStyle}" Text="{Binding Title, Converter={StaticResource UpperCase}}" />
+        <Border Margin="6,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}" Visibility="{Binding CountText, Converter={StaticResource NullToCollapsed}}">
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding CountText}" />
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:RunItemViewModel}">
+      <Grid Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="20" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding CancelRunCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Stop"
+                      Visibility="{Binding PlacementTarget.DataContext.IsRunning, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVisibility}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Stop16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding RunAgainCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Run again">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowRepeatAll16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <!-- Status: spinner while running, colored glyph after -->
+        <ui:ProgressRing Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center" IsIndeterminate="True"
+                         Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+        <ui:SymbolIcon HorizontalAlignment="Left" Filled="True" Style="{StaticResource CommandsRunStatusIconStyle}"
+                       Symbol="{Binding StatusIcon, Converter={StaticResource SymbolFromName}}"
+                       Visibility="{Binding IsFinished, Converter={StaticResource BoolToVisibility}}" />
+
+        <StackPanel Grid.Column="1" Margin="6,5,8,5" VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Label}" />
+          <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+            <TextBlock Style="{StaticResource ForgeCaptionSecondary}">
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource RelativeTime}">
+                  <Binding Path="StartedAt" />
+                  <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
+            <TextBlock Margin="8,0,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding ExitCodeText}"
+                       Visibility="{Binding HasExitCode, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+        </StackPanel>
+
+        <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding DurationText}" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="400" MinWidth="300" MaxWidth="640" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="280" MinWidth="220" MaxWidth="480" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" MinWidth="420" />
+    </Grid.ColumnDefinitions>
+
+    <!-- =================================== Commands =================================== -->
+    <Grid Grid.Column="0" AutomationProperties.AutomationId="Commands.CommandsPane">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Margin="24,16,12,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource CommandsPaneTitleStyle}" Text="Commands" />
+          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding CommandCountText}"
+                     Visibility="{Binding HasCommands, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+          <ui:ProgressRing Width="16" Height="16" Margin="0,0,8,0" IsIndeterminate="True"
+                           Visibility="{Binding IsDetecting, Converter={StaticResource BoolToVisibility}}" />
+          <ui:Button AutomationProperties.AutomationId="Commands.RedetectButton" AutomationProperties.Name="Detect commands again"
+                     Command="{Binding RedetectCommand}" Icon="{ui:SymbolIcon ArrowSync16}" Style="{StaticResource ForgeIconButtonStyle}"
+                     ToolTip="Detect commands again (after adding scripts or build files)" />
+          <ui:Button Margin="4,0,0,0" AutomationProperties.AutomationId="Commands.AddButton" Command="{Binding AddCommandCommand}" Content="Add"
+                     Icon="{ui:SymbolIcon Add16}" ToolTip="Add a command of your own" />
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Grid.Row="1" Margin="24,12,12,8">
+        <ui:TextBox x:Name="SearchBox" AutomationProperties.AutomationId="Commands.SearchBox" AutomationProperties.Name="Filter commands"
+                    ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}" PlaceholderText="Filter commands"
+                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=120}" />
+        <Border Style="{StaticResource CommandsFilterChipStyle}" Visibility="{Binding HasCategoryFilter, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock VerticalAlignment="Center" FontSize="12" Text="{Binding CategoryFilterText}" />
+            <ui:Button Width="24" Height="24" MinWidth="24" MinHeight="24" Margin="4,0,0,0" AutomationProperties.AutomationId="Commands.ClearCategoryFilter"
+                       AutomationProperties.Name="Show every category" Command="{Binding ClearCategoryFilterCommand}" FontSize="12"
+                       Icon="{ui:SymbolIcon Dismiss16}" Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Show every category" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <Grid Grid.Row="2">
+        <ListBox x:Name="CommandList" Margin="12,0,4,8" AutomationProperties.AutomationId="Commands.CommandList" AutomationProperties.Name="Commands"
+                 ItemContainerStyle="{StaticResource CommandsCommandRowStyle}" ItemsSource="{Binding Entries}" PreviewKeyDown="OnCommandListKeyDown"
+                 MouseDoubleClick="OnCommandListDoubleClick" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}" SelectionMode="Single"
+                 Style="{StaticResource ForgeDenseListBoxStyle}" />
+
+        <controls:SkeletonList Margin="12,0,12,0" IsActive="{Binding IsLoading}" RowCount="6" RowHeight="48"
+                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+        <controls:EmptyState AutomationProperties.AutomationId="Commands.NoCommandsState" Icon="WindowConsole20" Title="No commands found"
+                             Description="{Binding NoCommandsDescription}" ActionText="Add a command" ActionCommand="{Binding AddCommandCommand}"
+                             SecondaryActionText="Detect again" SecondaryActionCommand="{Binding RedetectCommand}"
+                             Visibility="{Binding ShowNoCommands, Converter={StaticResource BoolToVisibility}}" />
+
+        <StackPanel Margin="24,24,24,0" VerticalAlignment="Top" Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVisibility}}">
+          <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="No command matches this filter." TextWrapping="Wrap" />
+          <ui:Button Margin="0,8,0,0" Appearance="Secondary" Command="{Binding ClearSearchCommand}" Content="Clear the filter" />
+        </StackPanel>
+
+        <controls:ErrorPanel Margin="24,0,12,0" AutomationProperties.AutomationId="Commands.Error" Error="{Binding Error}" RetryCommand="{Binding RetryCommand}" />
+      </Grid>
+    </Grid>
+
+    <GridSplitter Grid.Column="1" Style="{StaticResource ForgeGridSplitterStyle}" />
+
+    <!-- ===================================== Runs ===================================== -->
+    <Grid Grid.Column="2" AutomationProperties.AutomationId="Commands.RunsPane">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Margin="16,16,8,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource CommandsPaneTitleStyle}" Text="Runs" />
+          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="Live and recent executions" />
+        </StackPanel>
+        <ui:Button Grid.Column="1" AutomationProperties.AutomationId="Commands.ClearHistoryButton" AutomationProperties.Name="Clear the run history"
+                   Command="{Binding ClearHistoryCommand}" Icon="{ui:SymbolIcon Delete16}" Style="{StaticResource ForgeIconButtonStyle}"
+                   ToolTip="Clear the run history…" Visibility="{Binding HasRuns, Converter={StaticResource BoolToVisibility}}" />
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <ListBox x:Name="RunList" Margin="4,0,4,8" AutomationProperties.AutomationId="Commands.RunList" AutomationProperties.Name="Runs"
+                 ItemContainerStyle="{StaticResource CommandsRunRowStyle}" ItemsSource="{Binding Runs}"
+                 SelectedItem="{Binding SelectedRunEntry, Mode=TwoWay}" SelectionMode="Single" Style="{StaticResource ForgeDenseListBoxStyle}" />
+
+        <controls:SkeletonList Margin="12,0,12,0" IsActive="{Binding IsLoading}" RowCount="5" RowHeight="44"
+                               Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+        <StackPanel Margin="16,8,16,0" VerticalAlignment="Top" Visibility="{Binding ShowNoRuns, Converter={StaticResource BoolToVisibility}}">
+          <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="Nothing has run yet." TextWrapping="Wrap" />
+          <TextBlock Margin="0,4,0,0" Style="{StaticResource ForgeCaptionSecondary}"
+                     Text="Press Run next to a command: its output, progress and result appear here and stay in the history." TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <GridSplitter Grid.Column="3" Style="{StaticResource ForgeGridSplitterStyle}" />
+
+    <!-- ================================== Run detail ================================== -->
+    <Grid Grid.Column="4" AutomationProperties.AutomationId="Commands.RunDetailPane">
+      <ContentControl Content="{Binding Detail}" Focusable="False" IsTabStop="False" />
+      <controls:EmptyState AutomationProperties.AutomationId="Commands.NoRunSelectedState" Icon="WindowConsole20" Title="Select a run"
+                           Description="Its output, progress and result show here. Start a command from the list to watch it live."
+                           Visibility="{Binding HasSelectedRun, Converter={StaticResource InverseBoolToVisibility}}" />
+    </Grid>
+  </Grid>
+</UserControl>

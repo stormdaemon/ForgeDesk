@@ -1,0 +1,537 @@
+<UserControl x:Class="ForgeDesk.App.Features.Tasks.TasksSectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:tasks="clr-namespace:ForgeDesk.App.Features.Tasks"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.Tasks;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:TasksSectionViewModel}"
+             d:DesignHeight="760" d:DesignWidth="1400"
+             x:Name="Root"
+             AutomationProperties.AutomationId="Tasks.Section"
+             Focusable="False"
+             KeyDown="OnKeyDown"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <UserControl.InputBindings>
+    <KeyBinding Command="{Binding NewTaskCommand}" Gesture="Ctrl+N" />
+  </UserControl.InputBindings>
+
+  <UserControl.Resources>
+    <!-- Context menu of a card or row; DataContext = the section, PlacementTarget.DataContext = the card. -->
+    <ContextMenu x:Key="CardMenu" x:Shared="False" DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+      <MenuItem Command="{Binding OpenCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                FontWeight="SemiBold" Header="Open" InputGestureText="Enter">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Open16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding StartWorkingOnCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                Header="Start working">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="BranchFork16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Command="{Binding CompleteCardCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                Header="Complete">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="CheckmarkCircle16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem Header="Move to">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="ArrowRight16" />
+        </MenuItem.Icon>
+        <MenuItem Command="{Binding MoveToBacklogCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Header="Backlog" />
+        <MenuItem Command="{Binding MoveToTodoCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Header="To do" />
+        <MenuItem Command="{Binding MoveToInProgressCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Header="In progress" />
+        <MenuItem Command="{Binding MoveToReviewCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Header="Review" />
+        <MenuItem Command="{Binding MoveToDoneCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Header="Done" />
+      </MenuItem>
+      <MenuItem Command="{Binding CopyCardKeyCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                Header="Copy key and title">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Copy16" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator />
+      <MenuItem Command="{Binding DeleteCardCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                Header="Delete…" InputGestureText="Del">
+        <MenuItem.Icon>
+          <ui:SymbolIcon Symbol="Delete16" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </ContextMenu>
+
+    <!-- Label filter menu -->
+    <ContextMenu x:Key="LabelFilterMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                 ItemsSource="{Binding AvailableLabels}">
+      <ContextMenu.ItemContainerStyle>
+        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+          <Setter Property="Header" Value="{Binding}" />
+          <Setter Property="Command" Value="{Binding DataContext.FilterByLabelCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+          <Setter Property="CommandParameter" Value="{Binding}" />
+        </Style>
+      </ContextMenu.ItemContainerStyle>
+    </ContextMenu>
+
+    <!-- ===== A card of the board ===== -->
+    <DataTemplate x:Key="CardTemplate" DataType="{x:Type vm:TaskCardViewModel}">
+      <Border ContextMenu="{StaticResource CardMenu}" Style="{StaticResource TasksCardStyle}"
+              Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="{Binding ToolTip}" ToolTipService.InitialShowDelay="900">
+        <Grid>
+          <Border Margin="0,8,0,8" Style="{StaticResource TasksPriorityBarStyle}" />
+          <StackPanel Margin="12,8,10,9">
+            <!-- Key, priority, current branch -->
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Key}" />
+              <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <ui:ProgressRing Width="12" Height="12" Margin="0,0,6,0" IsIndeterminate="True"
+                                 Visibility="{Binding IsWorking, Converter={StaticResource BoolToVisibility}}" />
+                <ui:SymbolIcon Margin="0,0,6,0" FontSize="12" Foreground="{DynamicResource ForgeAccentBrush}" Symbol="BranchFork16"
+                               ToolTip="Linked to the branch checked out now"
+                               Visibility="{Binding IsOnCurrentBranch, Converter={StaticResource BoolToVisibility}}" />
+                <ui:SymbolIcon Style="{StaticResource TasksPriorityIconStyle}" ToolTip="{Binding PriorityName, StringFormat=Priority: {0}}" />
+              </StackPanel>
+            </Grid>
+
+            <!-- Title, two lines at most -->
+            <TextBlock MaxHeight="40" Margin="0,4,0,0" Style="{StaticResource ForgeBody}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                       TextWrapping="Wrap" />
+
+            <!-- Labels -->
+            <ItemsControl Focusable="False" ItemsSource="{Binding Labels}" Visibility="{Binding HasLabels, Converter={StaticResource BoolToVisibility}}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Style="{StaticResource TasksLabelChipStyle}">
+                    <TextBlock VerticalAlignment="Center" Text="{Binding}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Links and due date -->
+            <WrapPanel Margin="0,6,0,0">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding LinksToolTip}" Visibility="{Binding HasLinks, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding BranchCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ui:SymbolIcon Style="{StaticResource TasksFooterIconStyle}" Symbol="BranchFork16" />
+                  <TextBlock Style="{StaticResource TasksFooterTextStyle}" Text="{Binding BranchCount}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding CommitCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ui:SymbolIcon Style="{StaticResource TasksFooterIconStyle}" Symbol="Record16" />
+                  <TextBlock Style="{StaticResource TasksFooterTextStyle}" Text="{Binding CommitCount}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding FileCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ui:SymbolIcon Style="{StaticResource TasksFooterIconStyle}" Symbol="Document16" />
+                  <TextBlock Style="{StaticResource TasksFooterTextStyle}" Text="{Binding FileCount}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding IssueCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ui:SymbolIcon Style="{StaticResource TasksFooterIconStyle}" Symbol="BranchRequest16" />
+                  <TextBlock Style="{StaticResource TasksFooterTextStyle}" Text="{Binding IssueCount}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding UrlCount, Converter={StaticResource ZeroToCollapsed}}">
+                  <ui:SymbolIcon Style="{StaticResource TasksFooterIconStyle}" Symbol="Link16" />
+                  <TextBlock Style="{StaticResource TasksFooterTextStyle}" Text="{Binding UrlCount}" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Visibility="{Binding HasDue, Converter={StaticResource BoolToVisibility}}">
+                <ui:SymbolIcon Style="{StaticResource TasksDueIconStyle}" Symbol="Calendar16" />
+                <TextBlock Style="{StaticResource TasksDueTextStyle}" Text="{Binding DueText}" />
+              </StackPanel>
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <!-- ===== A column of the board ===== -->
+    <DataTemplate x:Key="ColumnTemplate" DataType="{x:Type vm:TaskColumnViewModel}">
+      <Border AutomationProperties.AutomationId="{Binding AutomationId}" AutomationProperties.Name="{Binding Title}" Style="{StaticResource TasksColumnStyle}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- Header: name, count, + -->
+          <Grid Margin="14,10,6,8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Ellipse Margin="0,0,8,0" Style="{StaticResource TasksColumnGlyphStyle}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+              <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Title}" />
+              <Border Margin="8,0,0,0" Style="{StaticResource ForgeCountBadgeStyle}">
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Count}" />
+              </Border>
+            </StackPanel>
+            <ui:Button Grid.Column="3" AutomationProperties.AutomationId="{Binding AddButtonAutomationId}" AutomationProperties.Name="{Binding AddToolTip}"
+                       Command="{Binding OpenQuickAddCommand}" Icon="{ui:SymbolIcon Add16}" Style="{StaticResource ForgeIconButtonStyle}"
+                       ToolTip="{Binding AddToolTip}" />
+          </Grid>
+
+          <!-- Quick add: Enter creates (and stays open), Esc cancels -->
+          <Grid Grid.Row="1" Margin="8,0,8,8" Visibility="{Binding IsQuickAddOpen, Converter={StaticResource BoolToVisibility}}">
+            <ui:TextBox tasks:FocusRequest.Request="{Binding QuickAddFocusRequest}" AutomationProperties.AutomationId="{Binding QuickAddAutomationId}"
+                        AutomationProperties.Name="New task title" ClearButtonEnabled="False"
+                        PlaceholderText="Task title, then Enter" Text="{Binding QuickAddText, UpdateSourceTrigger=PropertyChanged}">
+              <ui:TextBox.InputBindings>
+                <KeyBinding Key="Return" Command="{Binding SubmitQuickAddCommand}" />
+                <KeyBinding Key="Escape" Command="{Binding CancelQuickAddCommand}" />
+              </ui:TextBox.InputBindings>
+            </ui:TextBox>
+          </Grid>
+
+          <!-- Cards (virtualized; drag and drop handled by the view) -->
+          <ListBox Grid.Row="2" Padding="0,0,0,4" AllowDrop="True" AutomationProperties.AutomationId="{Binding AutomationId, StringFormat={}{0}.Cards}"
+                   AutomationProperties.Name="{Binding Title}" Background="Transparent" BorderThickness="0" DragLeave="OnCardsDragLeave" DragOver="OnCardsDragOver"
+                   Drop="OnCardsDrop" ItemContainerStyle="{StaticResource TasksCardContainerStyle}" ItemTemplate="{StaticResource CardTemplate}"
+                   ItemsSource="{Binding Cards}" PreviewKeyDown="OnCardsKeyDown" PreviewMouseLeftButtonDown="OnCardsMouseDown"
+                   PreviewMouseLeftButtonUp="OnCardsMouseUp" PreviewMouseMove="OnCardsMouseMove" ScrollViewer.CanContentScroll="True"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Single" Tag="{Binding}"
+                   VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.VirtualizationMode="Recycling" />
+
+          <!-- Older done tasks -->
+          <ui:Button Grid.Row="3" Margin="8,0,8,8" HorizontalAlignment="Stretch" Appearance="Transparent" AutomationProperties.AutomationId="Tasks.ShowOlderDone"
+                     Command="{Binding ShowHiddenCommand}" Content="{Binding ShowMoreText}" ToolTip="Show the tasks completed more than two weeks ago"
+                     Visibility="{Binding HasHidden, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <!-- ===== A row of the list view ===== -->
+    <DataTemplate x:Key="RowTemplate" DataType="{x:Type vm:TaskCardViewModel}">
+      <Grid Height="32" Background="Transparent" ContextMenu="{StaticResource CardMenu}" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="64" />
+          <ColumnDefinition Width="*" MinWidth="160" />
+          <ColumnDefinition Width="110" />
+          <ColumnDefinition Width="100" />
+          <ColumnDefinition Width="180" />
+          <ColumnDefinition Width="110" />
+          <ColumnDefinition Width="130" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Margin="6,0" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Key}" />
+        <StackPanel Grid.Column="1" Margin="6,0" VerticalAlignment="Center" Orientation="Horizontal">
+          <ui:SymbolIcon Margin="0,0,6,0" FontSize="12" Foreground="{DynamicResource ForgeAccentBrush}" Symbol="BranchFork16"
+                         ToolTip="Linked to the branch checked out now" Visibility="{Binding IsOnCurrentBranch, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Style="{StaticResource ForgeBody}" Text="{Binding Title}" ToolTip="{Binding ToolTip}" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Margin="6,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding StatusName}" />
+        <StackPanel Grid.Column="3" Margin="6,0" VerticalAlignment="Center" Orientation="Horizontal">
+          <ui:SymbolIcon Margin="0,0,6,0" Style="{StaticResource TasksPriorityIconStyle}" />
+          <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="{Binding PriorityName}" Visibility="{Binding HasPriority, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+        <TextBlock Grid.Column="4" Margin="6,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding LabelsText}"
+                   ToolTip="{Binding LabelsText}" />
+        <TextBlock Grid.Column="5" Margin="6,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}">
+          <TextBlock.Text>
+            <MultiBinding Converter="{StaticResource RelativeTime}">
+              <Binding Path="UpdatedAt" />
+              <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+        <TextBlock Grid.Column="6" Margin="6,0" VerticalAlignment="Center" Style="{StaticResource TasksDueTextStyle}" Text="{Binding DueText}" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="480" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition x:Name="DetailColumn" Width="0" MaxWidth="720" />
+    </Grid.ColumnDefinitions>
+
+    <Grid Grid.Column="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- ===== Toolbar ===== -->
+      <Grid Margin="24,16,24,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource ForgeSubtitle}" Text="Tasks" />
+          <TextBlock Margin="0,2,0,0" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding TotalText}"
+                     Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <!-- Board / List -->
+        <Border Grid.Column="1" Margin="20,0,0,0" Padding="2" VerticalAlignment="Center" Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton AutomationProperties.AutomationId="Tasks.BoardViewButton" AutomationProperties.Name="Board" IsChecked="{Binding IsBoardView, Mode=TwoWay}" Style="{StaticResource TasksSegmentButtonStyle}"
+                         ToolTip="Board: columns by status, drag cards to move them">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon Margin="0,0,6,0" FontSize="14" Symbol="Board16" />
+                <TextBlock VerticalAlignment="Center" Text="Board" />
+              </StackPanel>
+            </RadioButton>
+            <RadioButton Margin="2,0,0,0" AutomationProperties.AutomationId="Tasks.ListViewButton" AutomationProperties.Name="List" IsChecked="{Binding IsListView, Mode=TwoWay}" Style="{StaticResource TasksSegmentButtonStyle}"
+                         ToolTip="List: a sortable table for large backlogs">
+              <StackPanel Orientation="Horizontal">
+                <ui:SymbolIcon Margin="0,0,6,0" FontSize="14" Symbol="TextBulletListLtr16" />
+                <TextBlock VerticalAlignment="Center" Text="List" />
+              </StackPanel>
+            </RadioButton>
+          </StackPanel>
+        </Border>
+
+        <!-- Filters -->
+        <WrapPanel Grid.Column="2" Margin="16,0,16,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <ui:TextBox x:Name="SearchBox" Width="240" Margin="0,2,8,2" AutomationProperties.AutomationId="Tasks.SearchBox" AutomationProperties.Name="Filter tasks"
+                      ClearButtonEnabled="True" Icon="{ui:SymbolIcon Search16}" PlaceholderText="Filter: title, #12, label"
+                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
+          <ComboBox Width="140" Margin="0,2,8,2" AutomationProperties.AutomationId="Tasks.PriorityFilter" AutomationProperties.Name="Priority filter"
+                    ItemsSource="{Binding PriorityFilters}" SelectedItem="{Binding PriorityFilter, Mode=TwoWay}" ToolTip="Show only tasks of this priority">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:TaskPriorityFilter}">
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <StackPanel Margin="0,2,8,2" Orientation="Horizontal">
+            <ui:DropDownButton AutomationProperties.AutomationId="Tasks.LabelFilter" Content="{Binding LabelFilterText}" Flyout="{StaticResource LabelFilterMenu}"
+                               Icon="{ui:SymbolIcon Tag16}" IsEnabled="{Binding HasAvailableLabels}"
+                               ToolTip="Show only tasks with this label" />
+            <ui:Button Margin="2,0,0,0" AutomationProperties.Name="Any label" Command="{Binding ClearLabelFilterCommand}" Icon="{ui:SymbolIcon Dismiss16}"
+                       Style="{StaticResource ForgeIconButtonStyle}" ToolTip="Show every label"
+                       Visibility="{Binding LabelFilter, Converter={StaticResource NullToCollapsed}}" />
+          </StackPanel>
+          <ui:ToggleSwitch Margin="4,2,0,2" VerticalAlignment="Center" AutomationProperties.AutomationId="Tasks.ShowDoneToggle" Content="Show done"
+                           IsChecked="{Binding ShowDone, Mode=TwoWay}" ToolTip="Show completed tasks" />
+        </WrapPanel>
+
+        <ui:Button Grid.Column="3" VerticalAlignment="Center" Appearance="Primary" AutomationProperties.AutomationId="Tasks.NewTaskButton"
+                   Command="{Binding NewTaskCommand}" Content="New task" Icon="{ui:SymbolIcon Add16}" ToolTip="Add a task to To do (Ctrl+N)" />
+      </Grid>
+
+      <!-- ===== Board ===== -->
+      <ScrollViewer x:Name="BoardScroll" Grid.Row="1" Padding="24,0,12,16" AutomationProperties.AutomationId="Tasks.Board" Focusable="False"
+                    HorizontalScrollBarVisibility="Auto" SizeChanged="OnBoardSizeChanged" VerticalScrollBarVisibility="Disabled">
+        <ScrollViewer.Style>
+          <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding ShowBoardSurface}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </ScrollViewer.Style>
+        <ItemsControl x:Name="BoardColumns" Focusable="False" ItemTemplate="{StaticResource ColumnTemplate}" ItemsSource="{Binding Columns}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="ContentPresenter">
+              <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- ===== List ===== -->
+      <Grid Grid.Row="1" Margin="12,0,12,8" AutomationProperties.AutomationId="Tasks.List">
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding ShowListSurface}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Padding="12,0,12,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+          <Grid Height="30">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="64" />
+              <ColumnDefinition Width="*" MinWidth="160" />
+              <ColumnDefinition Width="110" />
+              <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="110" />
+              <ColumnDefinition Width="130" />
+            </Grid.ColumnDefinitions>
+            <Button AutomationProperties.AutomationId="Tasks.SortByKey" Command="{Binding SortByCommand}" CommandParameter="{x:Static vm:TaskSortColumn.Key}"
+                    Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Key" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Key">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="1" AutomationProperties.AutomationId="Tasks.SortByTitle" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Title}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Title" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Title">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="2" AutomationProperties.AutomationId="Tasks.SortByStatus" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Status}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Status" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Status">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="3" AutomationProperties.AutomationId="Tasks.SortByPriority" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Priority}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Priority" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Priority">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="4" AutomationProperties.AutomationId="Tasks.SortByLabels" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Labels}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Labels" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Labels">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="5" AutomationProperties.AutomationId="Tasks.SortByUpdated" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Updated}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Updated" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Updated">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="6" AutomationProperties.AutomationId="Tasks.SortByDue" Command="{Binding SortByCommand}"
+                    CommandParameter="{x:Static vm:TaskSortColumn.Due}" Style="{StaticResource TasksHeaderButtonStyle}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="Due" />
+                <ui:SymbolIcon Margin="4,0,0,0" FontSize="12">
+                  <ui:SymbolIcon.Symbol>
+                    <MultiBinding Converter="{StaticResource TasksSortGlyph}" ConverterParameter="Due">
+                      <Binding Path="SortColumn" />
+                      <Binding Path="SortDescending" />
+                    </MultiBinding>
+                  </ui:SymbolIcon.Symbol>
+                </ui:SymbolIcon>
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+
+        <ListBox x:Name="TaskList" Grid.Row="1" AutomationProperties.AutomationId="Tasks.ListRows" AutomationProperties.Name="Tasks"
+                 ItemContainerStyle="{StaticResource ForgeTableRowStyle}" ItemTemplate="{StaticResource RowTemplate}" ItemsSource="{Binding ListItems}"
+                 MouseDoubleClick="OnListDoubleClick" PreviewKeyDown="OnListKeyDown" SelectedItem="{Binding SelectedCard, Mode=TwoWay}" SelectionMode="Single"
+                 Style="{StaticResource ForgeDenseListBoxStyle}" />
+      </Grid>
+
+      <!-- ===== States ===== -->
+      <Grid Grid.Row="1" Margin="24,0,24,16" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+        <UniformGrid Rows="1">
+          <controls:SkeletonList Margin="0,0,12,0" IsActive="{Binding IsLoading}" RowCount="4" RowHeight="88" />
+          <controls:SkeletonList Margin="0,0,12,0" IsActive="{Binding IsLoading}" RowCount="3" RowHeight="88" />
+          <controls:SkeletonList Margin="0,0,12,0" IsActive="{Binding IsLoading}" RowCount="2" RowHeight="88" />
+          <controls:SkeletonList Margin="0,0,12,0" IsActive="{Binding IsLoading}" RowCount="2" RowHeight="88" />
+          <controls:SkeletonList IsActive="{Binding IsLoading}" RowCount="3" RowHeight="88" />
+        </UniformGrid>
+      </Grid>
+
+      <controls:EmptyState Grid.Row="1" AutomationProperties.AutomationId="Tasks.EmptyState" Icon="TaskListSquareLtr24" Title="Plan your work"
+                           Description="Keep this project's to-dos next to its code: capture ideas in the backlog, drag them across the board as you work, and start a branch for a task in one click."
+                           ActionText="Create your first task" ActionCommand="{Binding NewTaskCommand}"
+                           Visibility="{Binding ShowEmptyBoard, Converter={StaticResource BoolToVisibility}}" />
+
+      <StackPanel Grid.Row="1" Margin="24,8,24,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVisibility}}">
+        <TextBlock Style="{StaticResource ForgeBodySecondary}" Text="No task matches these filters." />
+        <ui:Button Margin="0,8,0,0" Appearance="Secondary" AutomationProperties.AutomationId="Tasks.ClearFilters" Command="{Binding ClearFiltersCommand}"
+                   Content="Clear filters" />
+      </StackPanel>
+
+      <controls:ErrorPanel Grid.Row="1" Margin="24,0,24,0" AutomationProperties.AutomationId="Tasks.Error" Error="{Binding Error}" RetryCommand="{Binding RetryCommand}" />
+    </Grid>
+
+    <GridSplitter x:Name="DetailSplitter" Grid.Column="1" Style="{StaticResource ForgeGridSplitterStyle}" Visibility="Collapsed" />
+
+    <!-- ===== Details ===== -->
+    <Border Grid.Column="2" AutomationProperties.AutomationId="Tasks.DetailPane" Background="{DynamicResource LayerFillColorDefaultBrush}"
+            Visibility="{Binding IsDetailOpen, Converter={StaticResource BoolToVisibility}}">
+      <ContentControl Content="{Binding Detail}" Focusable="False" IsTabStop="False" />
+    </Border>
+  </Grid>
+</UserControl>
