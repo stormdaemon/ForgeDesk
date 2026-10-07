@@ -198,8 +198,17 @@ internal sealed class ContentSearchService : IContentSearchService
                 return;
             }
 
+            var text = line[(third + 1)..];
+
+            // git -w treats every non-ASCII letter as a word boundary ("caf" matches "café"): keep only the
+            // lines the .NET pattern, which knows Unicode letters, also matches, so both engines agree.
+            if (pattern.Query.WholeWord && pattern.IsMatch(text) == false)
+            {
+                return;
+            }
+
             var path = line[..first].Replace('\\', '/');
-            onMatch(pattern.CreateMatch(path, lineNumber, line[(third + 1)..], byteColumn));
+            onMatch(pattern.CreateMatch(path, lineNumber, text, byteColumn));
             _files.Add(path);
             if (++_matches >= maxResults)
             {

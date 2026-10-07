@@ -17,15 +17,49 @@ internal sealed class GitCli(IProcessRunner runner, ISettingsService? settings =
     private static readonly IReadOnlyDictionary<string, string?> GitEnvironment = new Dictionary<string, string?>
     {
         ["GIT_TERMINAL_PROMPT"] = "0",
-        ["LC_ALL"] = "C",
+        // English messages, but UTF-8 character handling: under plain "C", git grep folds case and runs PCRE
+        // on ASCII only, so "-i ÉCOLE" or "caf.$" would miss what the managed engine finds.
+        ["LC_ALL"] = "C.UTF-8",
 
         // Read-only commands must never take index.lock and collide with the user's own git operations.
         ["GIT_OPTIONAL_LOCKS"] = "0",
         ["GIT_PAGER"] = "cat",
     };
 
-    public string Executable =>
-        settings?.Current.GitExecutablePath is { Length: > 0 } configured && File.Exists(configured) ? configured : "git";
+    private string? _discovered;
+
+    /// <summary>
+    /// Absolute path of git: the configured one, else the first on PATH, else a default Git for Windows
+    /// install; null when none exists. Never a bare "git": Windows would first look for git.exe in
+    /// ForgeDesk's current directory, which may be a freshly cloned, untrusted repository.
+    /// </summary>
+    public string? Executable
+    {
+        get
+        {
+            if (settings?.Current.GitExecutablePath is { Length: > 0 } configured && File.Exists(configured))
+            {
+                return configured;
+            }
+
+            if (Volatile.Read(ref _discovered) is { } cached && File.Exists(cached))
+            {
+                return cached;
+            }
+
+            var found = ExecutableLocator.Find(OperatingSystem.IsWindows() ? "git.exe" : "git")
+                ?? (OperatingSystem.IsWindows()
+                    ? Git.GitLocator.WellKnownWindowsLocations(Environment.GetEnvironmentVariable).FirstOrDefault(File.Exists)
+                    : null);
+            if (found is not null)
+            {
+                found = Path.GetFullPath(found);
+                Volatile.Write(ref _discovered, found);
+            }
+
+            return found;
+        }
+    }
 
     /// <summary>True when <paramref name="directory"/> or one of its parents holds a .git folder (or worktree file).</summary>
     public static bool IsInsideRepository(string directory)
@@ -153,7 +187,7 @@ internal sealed class GitCli(IProcessRunner runner, ISettingsService? settings =
 
     private ProcessSpec CreateSpec(string workingDirectory, IEnumerable<string> arguments, string? standardInput, TimeSpan? timeout, int maxCapturedChars) => new()
     {
-        FileName = Executable,
+        FileName = Executable ?? throw new ForgeException(ErrorKind.ToolNotFound, "Git is not installed."),
         Arguments = ["-c", "core.quotepath=false", "-c", "color.ui=false", .. arguments],
         WorkingDirectory = workingDirectory,
         Environment = GitEnvironment,

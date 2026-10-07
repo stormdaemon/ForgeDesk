@@ -74,6 +74,19 @@ internal sealed class SearchPattern
         }
     }
 
+    /// <summary>Whether the line matches; null when the expression timed out (undecided).</summary>
+    public bool? IsMatch(string line)
+    {
+        try
+        {
+            return Regex.IsMatch(line.TrimEnd('\r', '\n'));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// Builds the result for a matching line. <paramref name="fallbackByteColumn"/> is git's 1-based
     /// byte column, used when the .NET pattern cannot locate the match itself.
