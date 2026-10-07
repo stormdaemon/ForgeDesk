@@ -12,7 +12,11 @@ internal sealed class GitCli
     /// <summary>Line <see cref="ProcessRunner"/> appends when it stops capturing output past the size limit.</summary>
     public const string OutputTruncatedMarker = "… [output truncated]";
 
-    private static readonly string[] GlobalConfig = ["core.quotepath=false", "color.ui=false"];
+    // core.fsmonitor names a program to run: a repository's own config must never start one behind the user's back.
+    private static readonly string[] GlobalConfig = ["core.quotepath=false", "color.ui=false", "core.fsmonitor=false"];
+
+    /// <summary>Reads that compare working-tree files with the index, and so may run filter drivers.</summary>
+    private static readonly HashSet<string> WorkingTreeReads = new(StringComparer.Ordinal) { "status", "diff" };
 
     private readonly IProcessRunner _runner;
     private readonly ILogger _logger;
@@ -42,6 +46,28 @@ internal sealed class GitCli
     public async Task<GitResult> ExecuteAsync(GitRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (request.Kind == GitCommandKind.Read && request.Arguments.Count > 0 && WorkingTreeReads.Contains(request.Arguments[0]))
+        {
+            var (repositoryKeys, failure) = await RepositoryConfigKeysAsync(request.WorkingDirectory, cancellationToken).ConfigureAwait(false);
+            if (failure is not null)
+            {
+                // Fail closed: without knowing the repository's filters, don't run a command that may start them.
+                return failure;
+            }
+
+            var overrides = GitRepositoryConfig.FilterOverrides(repositoryKeys);
+            if (overrides.Count > 0)
+            {
+                var environment = new Dictionary<string, string>(request.Environment, StringComparer.Ordinal);
+                foreach (var (key, value) in GitCredentialEnvironment.ToEnvironment(overrides, InheritedConfigCount()))
+                {
+                    environment[key] = value;
+                }
+
+                request = request with { Environment = environment };
+            }
+        }
+
         var git = await Locator.RequireAsync(cancellationToken).ConfigureAwait(false);
         var spec = BuildSpec(git.ExecutablePath, request, BaseEnvironment);
 
@@ -59,6 +85,23 @@ internal sealed class GitCli
         var result = new GitResult(request.DisplayCommand, processResult.ExitCode, processResult.StandardOutput, processResult.StandardError, processResult.TimedOut);
         _logger.LogDebug("{Command} exited with {ExitCode} in {Elapsed} ms", result.Command, result.ExitCode, (long)processResult.Duration.TotalMilliseconds);
         return result.TimedOut ? throw GitErrorTranslator.Translate(result) : result;
+    }
+
+    /// <summary>Keys the repository's own configuration sets (see <see cref="GitRepositoryConfig"/>), or the failed listing.</summary>
+    public async Task<(IReadOnlyList<string> Keys, GitResult? Failure)> RepositoryConfigKeysAsync(string workingDirectory, CancellationToken cancellationToken)
+    {
+        var listing = await ExecuteAsync(new GitRequest { WorkingDirectory = workingDirectory, Arguments = GitRepositoryConfig.ListArguments }, cancellationToken)
+            .ConfigureAwait(false);
+        return listing.Succeeded ? (GitRepositoryConfig.ParseRepositoryKeys(listing.StandardOutput), null) : ([], listing);
+    }
+
+    /// <summary>Number of GIT_CONFIG_* entries every git process inherits; per-command entries are appended after them.</summary>
+    public int InheritedConfigCount()
+    {
+        var inherited = BaseEnvironment.TryGetValue(GitCredentialEnvironment.CountVariable, out var overridden)
+            ? overridden
+            : Environment.GetEnvironmentVariable(GitCredentialEnvironment.CountVariable);
+        return GitCredentialEnvironment.InheritedConfigCount(inherited);
     }
 
     internal static ProcessSpec BuildSpec(string gitExecutable, GitRequest request, IReadOnlyDictionary<string, string?> baseEnvironment)

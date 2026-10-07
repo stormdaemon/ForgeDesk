@@ -1,5 +1,6 @@
 using ForgeDesk.Core.Common;
 using ForgeDesk.Core.Settings;
+using Microsoft.Extensions.Logging;
 
 namespace ForgeDesk.Core.Git;
 
@@ -140,25 +141,42 @@ internal sealed partial class GitService
             WorkingDirectory = repository,
             Arguments = arguments,
             Kind = GitCommandKind.Network,
-            Environment = await CredentialEnvironmentAsync(remoteUrls, cancellationToken).ConfigureAwait(false),
+            Environment = await CredentialEnvironmentAsync(remoteUrls, cancellationToken, repository).ConfigureAwait(false),
             Progress = progress,
         };
         await _cli.RunAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Credentials from the registered providers, as environment-based git configuration.</summary>
-    private async Task<IReadOnlyDictionary<string, string>> CredentialEnvironmentAsync(IEnumerable<string> remoteUrls, CancellationToken cancellationToken)
+    /// <summary>
+    /// Credentials from the registered providers, as environment-based git configuration. When
+    /// <paramref name="repository"/> is given, its own configuration must not touch how HTTPS is
+    /// verified or routed (sslVerify, sslCAInfo, proxy, curloptResolve…): such a repository could hand
+    /// the token to another server, so it gets none and git's own credential helpers take over.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> CredentialEnvironmentAsync(IEnumerable<string> remoteUrls, CancellationToken cancellationToken,
+        string? repository = null)
     {
+        var none = new Dictionary<string, string>();
         if (_credentialProviders.Count == 0 || !_settings.Current.UseGitHubTokenForGit)
         {
-            return new Dictionary<string, string>();
+            return none;
         }
 
-        var inherited = _cli.BaseEnvironment.TryGetValue(GitCredentialEnvironment.CountVariable, out var overridden)
-            ? overridden
-            : Environment.GetEnvironmentVariable(GitCredentialEnvironment.CountVariable);
-        return await GitCredentialEnvironment.BuildAsync(_credentialProviders, remoteUrls.Distinct(StringComparer.Ordinal).ToList(),
-            GitCredentialEnvironment.InheritedConfigCount(inherited), _logger, cancellationToken).ConfigureAwait(false);
+        var environment = await GitCredentialEnvironment.BuildAsync(_credentialProviders, remoteUrls.Distinct(StringComparer.Ordinal).ToList(),
+            _cli.InheritedConfigCount(), _logger, cancellationToken).ConfigureAwait(false);
+        if (environment.Count == 0 || repository is null)
+        {
+            return environment;
+        }
+
+        var (repositoryKeys, failure) = await _cli.RepositoryConfigKeysAsync(repository, cancellationToken).ConfigureAwait(false);
+        if (failure is not null || GitRepositoryConfig.OverridesTransport(repositoryKeys))
+        {
+            _logger.LogWarning("Not passing the GitHub token to git: the repository's own configuration changes HTTPS settings (or could not be read)");
+            return none;
+        }
+
+        return environment;
     }
 
     private static IEnumerable<string> RemoteUrls(IEnumerable<GitRemote> remotes) =>
