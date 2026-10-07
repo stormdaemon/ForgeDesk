@@ -30,7 +30,8 @@ internal static partial class GitErrorTranslator
                 "Try again. If it keeps happening, make sure no other program is blocking the repository.");
         }
 
-        return TranslateRepositoryAccess(failure)
+        return TranslateHookFailure(failure, result)
+            ?? TranslateRepositoryAccess(failure)
             ?? TranslateLocalState(failure)
             ?? TranslateRemote(failure)
             ?? TranslateFileSystem(failure)
@@ -43,6 +44,56 @@ internal static partial class GitErrorTranslator
     {
         ArgumentNullException.ThrowIfNull(result);
         return new Failure(result).Error(kind, message, hint);
+    }
+
+    /// <summary>
+    /// A failing pre-commit / commit-msg / pre-push hook makes git fail without a message of its own:
+    /// the output is the hook's (linters, tests…), whose phrases ("does not exist", "connection refused")
+    /// must not be matched against git's rules. Detected by the absence of any line git itself writes.
+    /// </summary>
+    private static ForgeException? TranslateHookFailure(Failure f, GitResult result)
+    {
+        var subcommand = Subcommand(result.Command);
+        var gitLines = f.Lines.Where(IsGitOriginated).ToList();
+        bool stoppedByHook;
+        string message;
+        if (subcommand == "commit")
+        {
+            stoppedByHook = gitLines.Count == 0
+                            && !f.Has("nothing to commit") && !f.Has("nothing added to commit") && !f.Has("no changes added to commit")
+                            && !f.Has("aborting commit") && !f.Has("please tell me who you are");
+            message = "A Git hook stopped the commit.";
+        }
+        else if (subcommand == "push")
+        {
+            // Git's only line then is "error: failed to push some refs to '…'".
+            stoppedByHook = gitLines.Count > 0
+                            && gitLines.All(l => l.StartsWith("error: failed to push some refs", StringComparison.OrdinalIgnoreCase))
+                            && !f.Has("[rejected]") && !f.Has("[remote rejected]");
+            message = "A Git hook stopped the push.";
+        }
+        else
+        {
+            return null;
+        }
+
+        return stoppedByHook && f.Lines.Any(l => l.Trim().Length > 0 && !l.StartsWith("error: failed to push some refs", StringComparison.OrdinalIgnoreCase))
+            ? f.Error(ErrorKind.GitCommandFailed, message, "Read the hook's output in the details, fix what it reports, then try again.")
+            : null;
+    }
+
+    private static bool IsGitOriginated(string line) =>
+        line.StartsWith("fatal:", StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith("error:", StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith("hint:", StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith("remote:", StringComparison.OrdinalIgnoreCase)
+        || line.StartsWith(" ! [", StringComparison.Ordinal)
+        || line.StartsWith("CONFLICT (", StringComparison.Ordinal);
+
+    private static string? Subcommand(string command)
+    {
+        var parts = command.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 && parts[0] == "git" ? parts[1] : null;
     }
 
     private static ForgeException? TranslateRepositoryAccess(Failure f)

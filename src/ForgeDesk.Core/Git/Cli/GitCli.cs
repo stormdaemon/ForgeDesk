@@ -45,15 +45,21 @@ internal sealed class GitCli
         var git = await Locator.RequireAsync(cancellationToken).ConfigureAwait(false);
         var spec = BuildSpec(git.ExecutablePath, request, BaseEnvironment);
 
+        // A local write is never killed half-way because the caller lost interest (closing a project
+        // during a checkout): git couldn't remove index.lock nor finish updating the working tree.
+        // Cancellation is honored until it starts; after that only the timeout stops it.
+        cancellationToken.ThrowIfCancellationRequested();
+        var processToken = request.Kind == GitCommandKind.Write ? CancellationToken.None : cancellationToken;
+
         ProcessResult processResult;
         if (request.Progress is { } progress)
         {
             var forwarder = new ProgressForwarder(progress);
-            processResult = await _runner.RunAsync(spec, forwarder.OnOutput, cancellationToken).ConfigureAwait(false);
+            processResult = await _runner.RunAsync(spec, forwarder.OnOutput, processToken).ConfigureAwait(false);
         }
         else
         {
-            processResult = await _runner.RunAsync(spec, cancellationToken).ConfigureAwait(false);
+            processResult = await _runner.RunAsync(spec, processToken).ConfigureAwait(false);
         }
 
         var result = new GitResult(request.DisplayCommand, processResult.ExitCode, processResult.StandardOutput, processResult.StandardError, processResult.TimedOut);

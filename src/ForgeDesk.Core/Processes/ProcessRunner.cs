@@ -66,6 +66,8 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.Exited += (_, _) => exited.TrySetResult();
         var stdout = new CappedBuilder(spec.MaxCapturedChars);
         var stderr = new CappedBuilder(spec.MaxCapturedChars);
         var stdoutDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -112,35 +114,26 @@ public sealed class ProcessRunner : IProcessRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        try
-        {
-            if (spec.StandardInput is not null)
-            {
-                await process.StandardInput.WriteAsync(spec.StandardInput.AsMemory(), cancellationToken).ConfigureAwait(false);
-            }
-
-            process.StandardInput.Close();
-        }
-        catch (IOException)
-        {
-            // The process exited before reading its input; the exit code tells the story.
-        }
-
         var timedOut = false;
         using var timeoutCts = spec.Timeout is { } t ? new CancellationTokenSource(t) : new CancellationTokenSource();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         try
         {
-            await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            KillTree(process);
-            if (cancellationToken.IsCancellationRequested)
+            // Killing on cancellation or timeout also unblocks a write the process isn't reading (full
+            // pipe): a process abandoned here would later read a truncated input (a cut commit message).
+            using (linked.Token.Register(static state => KillTree((Process)state!), process))
             {
-                throw;
+                await WriteInputAsync(process, spec.StandardInput, linked.Token).ConfigureAwait(false);
             }
 
+            // The process only: WaitForExitAsync also waits for the end of the redirected output, which
+            // grand-children (a hook's background job) can keep open long after the process exited.
+            await exited.Task.WaitAsync(linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (linked.IsCancellationRequested)
+        {
+            KillTree(process);
+            cancellationToken.ThrowIfCancellationRequested();
             timedOut = true;
         }
 
@@ -150,6 +143,43 @@ public sealed class ProcessRunner : IProcessRunner
 
         var exitCode = timedOut ? -1 : SafeExitCode(process);
         return new ProcessResult(exitCode, stdout.ToString(), stderr.ToString(), stopwatch.Elapsed, timedOut);
+    }
+
+    private static async Task WriteInputAsync(Process process, string? input, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (input is not null)
+            {
+                await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+                // Flushed here, cancellable, so the Close below never blocks on a full pipe.
+                await process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (IOException)
+        {
+            // The process exited (or was killed) before reading its input; the exit code tells the story.
+        }
+        finally
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // Killed before the pipe closes, so the process can never take a partial input as complete.
+                KillTree(process);
+            }
+
+            try
+            {
+                // Closed now, never left to a finalizer, so the process sees the end of its input.
+                process.StandardInput.Close();
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or ObjectDisposedException)
+            {
+                // Broken pipe: the process is gone.
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     /// <summary>Kills a process and all of its descendants, swallowing races with natural exit.</summary>
@@ -215,7 +245,8 @@ public sealed class ProcessRunner : IProcessRunner
                 if (_builder.Length + line.Length + 1 > maxChars)
                 {
                     _truncated = true;
-                    _builder.AppendLine("… [output truncated]");
+                    // '\n', not Environment.NewLine: readers look for the marker followed by '\n' on every OS.
+                    _builder.Append("… [output truncated]").Append('\n');
                     return;
                 }
 

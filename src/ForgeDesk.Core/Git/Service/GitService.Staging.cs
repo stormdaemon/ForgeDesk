@@ -61,6 +61,25 @@ internal sealed partial class GitService
             if (intentToAdd && await ReadDiffAsync(repository, ["diff", .. DiffOptions], [path], path, cancellationToken).ConfigureAwait(false) is { } fresh)
             {
                 source = diff with { HeaderLines = fresh.HeaderLines };
+
+                // The hunk was read from the raw file, but "git apply --cached" stores exactly what it
+                // is given: no clean filter, no CRLF → LF conversion. Git's own diff of the file has
+                // been through them, so the patch is built from its lines instead.
+                switch (UntrackedHunkSelection.Convert(diff, hunk, fresh))
+                {
+                    case { } converted:
+                        (source, hunk) = converted;
+                        break;
+                    case null when UntrackedHunkSelection.SelectsWholeFile(diff, hunk):
+                        // Converted beyond line endings (a filter such as Git LFS): only git add stores it right.
+                        await RunAsync(repository, ["add", "--", GitArguments.Pathspec(path)], cancellationToken, GitCommandKind.Write).ConfigureAwait(false);
+                        return;
+                    case null when UntrackedHunkSelection.IsAdditionOnly(hunk):
+                        throw new ForgeException(ErrorKind.InvalidInput, "Git converts this file when staging it (a filter), so its changes can't be staged one by one.",
+                            "Stage the whole file instead.");
+                    default:
+                        break;
+                }
             }
 
             var patch = GitPatchBuilder.Build(source, hunk);
@@ -131,11 +150,9 @@ internal sealed partial class GitService
                 "Delete the folder yourself if you really want to remove it.");
         }
 
-        if (toRestore.Count > 0)
-        {
-            await RunForPathsAsync(root, ["restore", "--source=HEAD", "--staged", "--worktree"], toRestore.Distinct(StringComparer.Ordinal), cancellationToken).ConfigureAwait(false);
-        }
-
+        // Removals first, restores last: a path to delete can be the same file as a restored one
+        // (case-only rename on a case-insensitive file system) or a file standing where a restored
+        // folder goes. Deleting after restoring would destroy what was just restored.
         if (toRemoveFromIndex.Count > 0)
         {
             await RunForPathsAsync(root, ["rm", "--cached", "-r", "-f", "-q", "--ignore-unmatch"], toRemoveFromIndex, cancellationToken).ConfigureAwait(false);
@@ -144,6 +161,11 @@ internal sealed partial class GitService
         foreach (var path in toDelete)
         {
             WorkingTreeFiles.DeleteUntracked(root, path);
+        }
+
+        if (toRestore.Count > 0)
+        {
+            await RunForPathsAsync(root, ["restore", "--source=HEAD", "--staged", "--worktree"], toRestore.Distinct(StringComparer.Ordinal), cancellationToken).ConfigureAwait(false);
         }
     }
 

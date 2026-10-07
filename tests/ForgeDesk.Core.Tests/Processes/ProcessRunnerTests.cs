@@ -69,4 +69,52 @@ public class ProcessRunnerTests
         var result = await ProcessRunner.Instance.RunAsync(spec, TestContext.Current.CancellationToken);
         result.StandardOutput.Should().Contain("hello world");
     }
+
+    private static string LargeInput() => string.Concat(Enumerable.Repeat(new string('x', 99) + "\n", 20_000));
+
+    [Fact]
+    public async Task Cancelling_while_writing_stdin_kills_the_process()
+    {
+        using var dir = new TempDirectory();
+        var output = Path.Combine(dir.Path, "out.txt");
+        var command = OperatingSystem.IsWindows()
+            ? "ping -n 3 127.0.0.1 > nul & findstr \"^\" > out.txt"
+            : "sleep 2; cat > out.txt";
+        var spec = ShellCommand.Create(command, dir.Path) with { StandardInput = LargeInput() };
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+
+        var act = () => ProcessRunner.Instance.RunAsync(spec, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        await Task.Delay(TimeSpan.FromSeconds(4), TestContext.Current.CancellationToken);
+        File.Exists(output).Should().BeFalse("the process must not survive the cancellation and consume a truncated input");
+    }
+
+    [Fact]
+    public async Task Timeout_applies_while_the_process_is_not_reading_stdin()
+    {
+        using var dir = new TempDirectory();
+        var spec = ShellCommand.Create(OperatingSystem.IsWindows() ? "ping -n 30 127.0.0.1 > nul" : "sleep 30", dir.Path, timeout: TimeSpan.FromMilliseconds(500))
+            with { StandardInput = LargeInput() };
+
+        var result = await ProcessRunner.Instance.RunAsync(spec, TestContext.Current.CancellationToken);
+
+        result.TimedOut.Should().BeTrue();
+        result.Duration.Should().BeLessThan(TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
+    public async Task Truncated_output_ends_with_the_marker_and_a_plain_newline()
+    {
+        using var dir = new TempDirectory();
+        var spec = ShellCommand.Create(OperatingSystem.IsWindows() ? "echo aaaaaaaaaa& echo bbbbbbbbbb" : "echo aaaaaaaaaa; echo bbbbbbbbbb", dir.Path)
+            with { MaxCapturedChars = 15 };
+
+        var result = await ProcessRunner.Instance.RunAsync(spec, TestContext.Current.CancellationToken);
+
+        result.StandardOutput.Should().EndWith(ForgeDesk.Core.Git.GitCli.OutputTruncatedMarker + "\n");
+        result.StandardOutput.Should().NotContain("\r");
+    }
 }

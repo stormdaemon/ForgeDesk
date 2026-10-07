@@ -63,5 +63,7 @@ internal sealed record GitResult(string Command, int ExitCode, string StandardOu
     public bool Succeeded => ExitCode == 0 && !TimedOut;
 
     /// <summary>True when the process runner dropped part of stdout because it exceeded the capture limit.</summary>
-    public bool IsOutputTruncated => StandardOutput.EndsWith(GitCli.OutputTruncatedMarker + "\n", StringComparison.Ordinal);
+    /// <remarks>Line-ending agnostic: a runner may end the marker line with "\r\n" (Environment.NewLine on Windows).</remarks>
+    public bool IsOutputTruncated =>
+        StandardOutput.EndsWith('\n') && StandardOutput.AsSpan().TrimEnd("\r\n").EndsWith(GitCli.OutputTruncatedMarker, StringComparison.Ordinal);
 }
