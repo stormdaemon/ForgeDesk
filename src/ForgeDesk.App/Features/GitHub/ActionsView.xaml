@@ -1,0 +1,363 @@
+<UserControl x:Class="ForgeDesk.App.Features.GitHub.ActionsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:ForgeDesk.App.Controls"
+             xmlns:conv="clr-namespace:ForgeDesk.App.Converters"
+             xmlns:github="clr-namespace:ForgeDesk.App.Features.GitHub"
+             xmlns:vm="clr-namespace:ForgeDesk.Presentation.GitHub;assembly=ForgeDesk.Presentation"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ActionsViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1200"
+             x:Name="Root"
+             AutomationProperties.AutomationId="GitHub.ActionsView"
+             Focusable="False">
+  <UserControl.InputBindings>
+    <KeyBinding Key="Escape" Command="{Binding CloseDetailCommand}" />
+  </UserControl.InputBindings>
+
+  <UserControl.Resources>
+    <!-- State of a run, job or step: a spinner while running, the colored state icon otherwise. -->
+    <DataTemplate x:Key="RunStateIconTemplate">
+      <Grid Width="18" Height="18">
+        <ui:SymbolIcon x:Name="Icon" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16"
+                       Foreground="{Binding StateTone, Converter={StaticResource GitHubToneToBrush}}"
+                       Symbol="{Binding StateIcon, Converter={StaticResource SymbolFromName}}" />
+        <ui:ProgressRing x:Name="Spinner" Width="14" Height="14" IsIndeterminate="True" Visibility="Collapsed" />
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding State}" Value="Running">
+          <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
+          <Setter TargetName="Spinner" Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- A workflow of the left list. -->
+    <DataTemplate x:Key="WorkflowTemplate" DataType="{x:Type vm:WorkflowFilterViewModel}">
+      <Grid Background="Transparent" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Symbol="{Binding Icon, Converter={StaticResource SymbolFromName}}" />
+        <TextBlock x:Name="WorkflowName" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsActive}" Value="False">
+          <Setter TargetName="WorkflowName" Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- A run: state, commit message, then workflow, number, event, branch, actor; duration and age on the right. -->
+    <DataTemplate x:Key="RunRowTemplate" DataType="{x:Type vm:WorkflowRunRowViewModel}">
+      <Grid Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" ToolTip="{Binding ToolTip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ContextMenu>
+          <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+            <MenuItem Command="{Binding OpenOnGitHubCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Open on GitHub (logs)" InputGestureText="Enter">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Open16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding RerunCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Re-run all jobs" IsEnabled="{Binding PlacementTarget.DataContext.CanRerun, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowClockwise16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding RerunFailedCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Re-run failed jobs" IsEnabled="{Binding PlacementTarget.DataContext.CanRerunFailed, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="ArrowRepeatAll16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding CancelRunCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Cancel run…" IsEnabled="{Binding PlacementTarget.DataContext.CanCancel, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Stop16" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Command="{Binding CopyLinkCommand}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      Header="Copy link">
+              <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Link16" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <ContentPresenter Grid.RowSpan="2" Margin="0,1,12,0" VerticalAlignment="Top" Content="{Binding}" ContentTemplate="{StaticResource RunStateIconTemplate}" />
+
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding CommitMessage}" />
+
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3,0,0" Orientation="Horizontal">
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Name}" />
+          <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding RunNumberText}" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding EventText}" />
+          <Border Margin="8,0,0,0" Style="{StaticResource GitHubBranchPillStyle}" Visibility="{Binding Branch, Converter={StaticResource NullToCollapsed}}">
+            <TextBlock Text="{Binding Branch}" />
+          </Border>
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding Actor}"
+                     Visibility="{Binding Actor, Converter={StaticResource NullToCollapsed}}" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="2" Margin="12,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}"
+                   Text="{Binding DurationText}" ToolTip="Duration" />
+        <TextBlock Grid.Row="1" Grid.Column="2" Margin="12,3,0,0" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}">
+          <TextBlock.Text>
+            <MultiBinding Converter="{StaticResource RelativeTime}">
+              <Binding Path="CreatedAt" />
+              <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+      </Grid>
+    </DataTemplate>
+
+    <!-- A job of the selected run: header toggles its steps. -->
+    <DataTemplate x:Key="JobTemplate" DataType="{x:Type vm:WorkflowJobViewModel}">
+      <Border Margin="16,0,16,8" Style="{StaticResource ForgeSectionCardFlushStyle}">
+        <StackPanel>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ToggleButton Padding="12,8" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Name}" Background="Transparent" BorderThickness="0"
+                          Cursor="Hand" IsChecked="{Binding IsExpanded, Mode=TwoWay}" ToolTip="Show or hide the steps">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="8">
+                    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </ToggleButton.Template>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:SymbolIcon x:Name="Chevron" Margin="0,0,8,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Symbol="ChevronRight16" />
+                <ContentPresenter Grid.Column="1" Margin="0,0,10,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource RunStateIconTemplate}" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeBodyStrong}" Text="{Binding Name}" />
+                <TextBlock Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding DurationText}" />
+              </Grid>
+            </ToggleButton>
+            <ui:Button Grid.Column="1" Margin="0,0,6,0" AutomationProperties.Name="Open the job's logs on GitHub"
+                       Command="{Binding DataContext.OpenJobCommand, RelativeSource={RelativeSource AncestorType={x:Type github:ActionsView}}}" CommandParameter="{Binding}"
+                       Icon="{ui:SymbolIcon Open16}" Style="{StaticResource GitHubSmallIconButtonStyle}" ToolTip="Open the job's logs on GitHub" />
+          </Grid>
+
+          <ItemsControl x:Name="Steps" Margin="0,0,0,8" Focusable="False" ItemsSource="{Binding Steps}" Visibility="Collapsed">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:WorkflowStepViewModel}">
+                <Grid Height="28" Margin="32,0,12,0" ToolTip="{Binding StateText}">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="28" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <ContentPresenter Margin="0,0,8,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource RunStateIconTemplate}" />
+                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding Number}" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource ForgeBody}" Text="{Binding Name}" />
+                  <TextBlock Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding DurationText}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+          <Setter TargetName="Steps" Property="Visibility" Value="Visible" />
+          <Setter TargetName="Chevron" Property="Symbol" Value="ChevronDown16" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="220" MinWidth="160" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="3*" MinWidth="360" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="2*" MinWidth="360" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ===== Workflows ===== -->
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <Grid Margin="20,16,8,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Style="{StaticResource GitHubGroupTitleStyle}" Text="WORKFLOWS" />
+        <ui:Button Grid.Column="1" AutomationProperties.AutomationId="GitHub.OpenActionsButton" AutomationProperties.Name="Open Actions on GitHub"
+                   Command="{Binding OpenWorkflowsCommand}" Icon="{ui:SymbolIcon Open16}" Style="{StaticResource GitHubSmallIconButtonStyle}" ToolTip="Open Actions on GitHub" />
+      </Grid>
+      <ListBox Grid.Row="1" Margin="8,0,4,8" AutomationProperties.AutomationId="GitHub.WorkflowList" AutomationProperties.Name="Workflows"
+               ItemTemplate="{StaticResource WorkflowTemplate}" ItemsSource="{Binding Workflows}" SelectedItem="{Binding SelectedWorkflow, Mode=TwoWay}" SelectionMode="Single"
+               Style="{StaticResource ForgeDenseListBoxStyle}" />
+      <TextBlock Grid.Row="1" Margin="20,8,12,0" Style="{StaticResource ForgeCaptionSecondary}" Text="This repository has no workflow yet." TextWrapping="Wrap"
+                 Visibility="{Binding HasNoWorkflows, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+
+    <GridSplitter Grid.Column="1" Style="{StaticResource ForgeGridSplitterStyle}" />
+
+    <!-- ===== Runs ===== -->
+    <Grid Grid.Column="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <Grid Margin="16,12,16,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource GitHubPaneTitleStyle}" Text="Workflow runs" />
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource ForgeCaptionSecondary}" Text="{Binding RunsCaption}" />
+            <StackPanel Margin="8,0,0,0" Orientation="Horizontal" ToolTip="A run is in progress: the list refreshes every 15 seconds"
+                        Visibility="{Binding IsAutoRefreshing, Converter={StaticResource BoolToVisibility}}">
+              <controls:StatusDot Margin="0,0,4,0" VerticalAlignment="Center" Size="6" Status="Running" />
+              <TextBlock AutomationProperties.AutomationId="GitHub.AutoRefreshIndicator" Style="{StaticResource ForgeCaptionSecondary}" Text="Live" />
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+        <ListBox Grid.Column="1" AutomationProperties.AutomationId="GitHub.RunScopeFilter" AutomationProperties.Name="Branches" ItemsSource="{Binding ScopeOptions}"
+                 SelectedItem="{Binding SelectedScope, Mode=TwoWay}" Style="{StaticResource GitHubFilterListStyle}" />
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <ListBox x:Name="RunList" Margin="8,0,8,8" AutomationProperties.AutomationId="GitHub.RunList" AutomationProperties.Name="Workflow runs"
+                 ItemContainerStyle="{StaticResource GitHubTwoLineRowStyle}" ItemTemplate="{StaticResource RunRowTemplate}" ItemsSource="{Binding Runs}"
+                 MouseDoubleClick="OnRunDoubleClick" PreviewKeyDown="OnRunListKeyDown" SelectedItem="{Binding SelectedRun, Mode=TwoWay}" SelectionMode="Single"
+                 Style="{StaticResource ForgeDenseListBoxStyle}" />
+        <controls:SkeletonList IsActive="{Binding IsLoading}" RowCount="8" RowHeight="52" ShowIcons="True" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+        <controls:ErrorPanel Margin="24" AutomationProperties.AutomationId="GitHub.ActionsError" Error="{Binding Error}" RetryCommand="{Binding ReloadCommand}" />
+        <controls:EmptyState AutomationProperties.AutomationId="GitHub.NoRunsState" Icon="Flow20" Title="{Binding EmptyTitle}" Description="{Binding EmptyDescription}"
+                             ActionText="Show all branches" ActionCommand="{Binding ShowAllBranchesCommand}" SecondaryActionText="Open Actions on GitHub"
+                             SecondaryActionCommand="{Binding OpenWorkflowsCommand}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+      </Grid>
+    </Grid>
+
+    <GridSplitter Grid.Column="3" Style="{StaticResource ForgeGridSplitterStyle}" />
+
+    <!-- ===== Run detail ===== -->
+    <Border Grid.Column="4" AutomationProperties.AutomationId="GitHub.RunDetail" Style="{StaticResource GitHubDetailPaneStyle}">
+      <Grid>
+        <controls:EmptyState Icon="Flow20" Title="Select a run" Description="Its jobs and steps appear here, with re-run and cancel."
+                             Visibility="{Binding IsDetailOpen, Converter={StaticResource InverseBoolToVisibility}}" />
+
+        <Grid DataContext="{Binding Detail}" Visibility="{Binding DataContext.IsDetailOpen, ElementName=Root, Converter={StaticResource BoolToVisibility}}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <StackPanel Margin="20,16,12,12" DataContext="{Binding Run}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <controls:Pill VerticalAlignment="Center" Kind="{Binding StateTone, Converter={StaticResource GitHubToneToKind}}" Text="{Binding StateText}" />
+              <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}">
+                <Run Text="{Binding Name, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding RunNumberText, Mode=OneWay}" />
+              </TextBlock>
+              <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <ui:Button AutomationProperties.AutomationId="GitHub.OpenRunButton" AutomationProperties.Name="Open on GitHub"
+                           Command="{Binding DataContext.OpenOnGitHubCommand, ElementName=Root}" Icon="{ui:SymbolIcon Open16}"
+                           Style="{StaticResource GitHubSmallIconButtonStyle}" ToolTip="Open the run and its logs on GitHub (Enter)" />
+                <ui:Button AutomationProperties.AutomationId="GitHub.CopyRunLinkButton" AutomationProperties.Name="Copy link"
+                           Command="{Binding DataContext.CopyLinkCommand, ElementName=Root}" Icon="{ui:SymbolIcon Link16}"
+                           Style="{StaticResource GitHubSmallIconButtonStyle}" ToolTip="Copy link" />
+                <ui:Button AutomationProperties.AutomationId="GitHub.CloseRunDetailButton" AutomationProperties.Name="Close details"
+                           Command="{Binding DataContext.CloseDetailCommand, ElementName=Root}" Icon="{ui:SymbolIcon Dismiss16}"
+                           Style="{StaticResource GitHubSmallIconButtonStyle}" ToolTip="Close (Esc)" />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Margin="0,10,0,0" Style="{StaticResource ForgeTitle}" Text="{Binding CommitMessage}" TextTrimming="None" TextWrapping="Wrap" />
+
+            <WrapPanel Margin="0,8,0,0" Orientation="Horizontal">
+              <Border Margin="0,0,8,4" Style="{StaticResource GitHubBranchPillStyle}" Visibility="{Binding Branch, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding Branch}" />
+              </Border>
+              <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Style="{StaticResource ForgeMonoSecondary}" Text="{Binding ShortSha}" />
+              <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding EventText}" />
+              <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding Actor, StringFormat=by {0}}"
+                         Visibility="{Binding Actor, Converter={StaticResource NullToCollapsed}}" />
+              <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}">
+                <TextBlock.Text>
+                  <MultiBinding Converter="{StaticResource RelativeTime}" StringFormat="started {0}">
+                    <Binding Path="CreatedAt" />
+                    <Binding Path="Now" Source="{x:Static conv:UiClock.Instance}" />
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+              <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="{Binding DurationText, StringFormat=· {0}}" />
+            </WrapPanel>
+
+            <WrapPanel Margin="0,10,0,0" Orientation="Horizontal">
+              <ui:Button Margin="0,0,8,4" AutomationProperties.AutomationId="GitHub.RerunButton" Command="{Binding DataContext.RerunCommand, ElementName=Root}"
+                         Content="Re-run all jobs" Icon="{ui:SymbolIcon ArrowClockwise16}" Visibility="{Binding CanRerun, Converter={StaticResource BoolToVisibility}}" />
+              <ui:Button Margin="0,0,8,4" AutomationProperties.AutomationId="GitHub.RerunFailedButton" Command="{Binding DataContext.RerunFailedCommand, ElementName=Root}"
+                         Content="Re-run failed jobs" Icon="{ui:SymbolIcon ArrowRepeatAll16}" Visibility="{Binding CanRerunFailed, Converter={StaticResource BoolToVisibility}}" />
+              <ui:Button Margin="0,0,8,4" AutomationProperties.AutomationId="GitHub.CancelRunButton" Command="{Binding DataContext.CancelRunCommand, ElementName=Root}"
+                         Content="Cancel run…" Icon="{ui:SymbolIcon Stop16}" Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}" />
+              <ui:ProgressRing Width="16" Height="16" Margin="4,0,0,4" IsIndeterminate="True"
+                               Visibility="{Binding DataContext.Detail.IsWorking, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
+            </WrapPanel>
+          </StackPanel>
+
+          <ProgressBar Grid.Row="1" Height="2" VerticalAlignment="Top" IsIndeterminate="True"
+                       Visibility="{Binding IsLoadingJobs, Converter={StaticResource BoolToVisibility}}" />
+          <Rectangle Grid.Row="1" VerticalAlignment="Bottom" Style="{StaticResource ForgeDividerStyle}" />
+
+          <Grid Grid.Row="2">
+            <ItemsControl Padding="0,12,0,8" AutomationProperties.AutomationId="GitHub.JobList" AutomationProperties.Name="Jobs" ItemTemplate="{StaticResource JobTemplate}"
+                          ItemsSource="{Binding Jobs}" Style="{StaticResource GitHubVirtualizedItemsStyle}" />
+            <TextBlock Margin="20,16" HorizontalAlignment="Center" Style="{StaticResource ForgeBodySecondary}" Text="This run has no jobs yet." TextWrapping="Wrap"
+                       Visibility="{Binding HasNoJobs, Converter={StaticResource BoolToVisibility}}" />
+            <controls:ErrorPanel Margin="20" Error="{Binding JobsError}" RetryCommand="{Binding DataContext.RetryJobsCommand, ElementName=Root}" />
+          </Grid>
+        </Grid>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

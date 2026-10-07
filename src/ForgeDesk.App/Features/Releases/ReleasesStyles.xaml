@@ -1,0 +1,156 @@
+<!--
+  Styles of the Releases tab: release cards in a virtualized list, the wizard's stepper, version
+  suggestion cards and the execution timeline. Merged by ReleasesTemplates.xaml. Brushes are
+  DynamicResource so the light and dark themes both work.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:shell="clr-namespace:ForgeDesk.App.Shell">
+
+  <shell:StatusToneToKindConverter x:Key="ReleasesToneToKind" />
+  <shell:StatusToneToBrushConverter x:Key="ReleasesToneToBrush" />
+  <shell:InverseBooleanConverter x:Key="ReleasesInverseBoolean" />
+
+  <Style x:Key="ReleasesFocusVisualStyle">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-1" RadiusX="9" RadiusY="9" SnapsToDevicePixels="True" StrokeThickness="2" Stroke="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A release card in the list: no row highlight (the card is the surface), keyboard focus ring. -->
+  <Style x:Key="ReleaseCardItemStyle" TargetType="ListBoxItem">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Margin" Value="24,0,24,12" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ReleasesFocusVisualStyle}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- An asset of a release: a compact download button. -->
+  <Style x:Key="ReleaseAssetButtonStyle" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Margin" Value="0,0,8,8" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ReleasesFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                  BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ForgeAccentBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Text-only link button ("Show notes", "Release v1.3.0"). -->
+  <Style x:Key="ReleaseLinkButtonStyle" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ReleasesFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource ForgeInfoBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <ContentPresenter x:Name="Presenter" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="False" />
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Opacity" Value="0.85" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A selectable card (version suggestions): accent border when IsSelected. -->
+  <Style x:Key="ReleaseChoiceCardStyle" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource ReleasesFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+    <Setter Property="Padding" Value="16,14" />
+    <Setter Property="Margin" Value="0,0,12,12" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ForgeAccentBrush}" />
+              <Setter TargetName="Surface" Property="BorderThickness" Value="2" />
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ForgeAccentSubtleBrush}" />
+            </DataTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Caption of a group ("SUGGESTED VERSIONS"). -->
+  <Style x:Key="ReleasesGroupTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+  </Style>
+
+  <!-- Label of a review field ("Tag", "Target"). -->
+  <Style x:Key="ReleasesFieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+    <Setter Property="Width" Value="112" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Margin" Value="0,1,12,0" />
+  </Style>
+
+  <!-- Tag name ("v1.2.0") on a tint. -->
+  <Style x:Key="ReleaseTagPillStyle" TargetType="Border">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,0,6,1" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource ForgeWarningSubtleBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource ForgeWarningBrush}" />
+    <Setter Property="TextElement.FontFamily" Value="{DynamicResource ForgeMonoFont}" />
+    <Setter Property="TextElement.FontSize" Value="11" />
+    <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Small square icon button. Give it a ToolTip and an AutomationProperties.Name. -->
+  <Style x:Key="ReleasesIconButtonStyle" TargetType="ui:Button" BasedOn="{StaticResource ForgeIconButtonStyle}">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinWidth" Value="28" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+</ResourceDictionary>

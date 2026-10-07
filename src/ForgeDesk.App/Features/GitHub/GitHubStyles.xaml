@@ -1,0 +1,256 @@
+<!--
+  Styles of the GitHub tab (and the label/run templates the Releases tab reuses): sub-navigation and
+  filter segments, two-line list rows, label pills, detail pane headers, link buttons and cards.
+  Merged by GitHubTemplates.xaml. Brushes are DynamicResource so the light and dark themes both work.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:shell="clr-namespace:ForgeDesk.App.Shell"
+                    xmlns:vm="clr-namespace:ForgeDesk.Presentation.GitHub;assembly=ForgeDesk.Presentation">
+
+  <shell:StatusToneToKindConverter x:Key="GitHubToneToKind" />
+  <shell:StatusToneToBrushConverter x:Key="GitHubToneToBrush" />
+  <shell:InverseBooleanConverter x:Key="GitHubInverseBoolean" />
+
+  <!-- Keyboard focus ring of the custom controls below. -->
+  <Style x:Key="GitHubFocusVisualStyle">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-1" RadiusX="5" RadiusY="5" SnapsToDevicePixels="True" StrokeThickness="2"
+                     Stroke="{DynamicResource FocusStrokeColorOuterBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ===== Segments: sub-navigation (Overview · Pull requests · Issues · Actions) and filters ===== -->
+
+  <Style x:Key="GitHubSegmentItemStyle" TargetType="ListBoxItem">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource GitHubFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Grid>
+            <Border x:Name="Surface" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4" />
+            <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+              <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="GitHubSegmentedListStyle" TargetType="ListBox">
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="SelectionMode" Value="Single" />
+    <Setter Property="IsTextSearchEnabled" Value="False" />
+    <Setter Property="KeyboardNavigation.DirectionalNavigation" Value="Cycle" />
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Once" />
+    <Setter Property="ItemContainerStyle" Value="{StaticResource GitHubSegmentItemStyle}" />
+    <Setter Property="ItemsPanel">
+      <Setter.Value>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBox">
+          <Border Padding="2,2,0,2" Background="{DynamicResource SubtleFillColorSecondaryBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                  BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True">
+            <ItemsPresenter />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Compact segments for list filters (Open · Closed · All). -->
+  <Style x:Key="GitHubFilterItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource GitHubSegmentItemStyle}">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="AutomationProperties.AutomationId" Value="{Binding AutomationId}" />
+    <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+  </Style>
+
+  <Style x:Key="GitHubFilterListStyle" TargetType="ListBox" BasedOn="{StaticResource GitHubSegmentedListStyle}">
+    <Setter Property="ItemContainerStyle" Value="{StaticResource GitHubFilterItemStyle}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="DisplayMemberPath" Value="Title" />
+  </Style>
+
+  <!-- ===== Lists ======================================================================== -->
+
+  <!-- Two-line rows (pull requests, issues, runs). -->
+  <Style x:Key="GitHubTwoLineRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource ForgeDenseListBoxItemStyle}">
+    <Setter Property="MinHeight" Value="52" />
+    <Setter Property="Padding" Value="12,6" />
+  </Style>
+
+  <!-- Title of a pane ("Pull requests", "Workflows"). -->
+  <Style x:Key="GitHubPaneTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeSubtitle}">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Caption of a group ("WORKFLOWS", "CURRENT BRANCH"). -->
+  <Style x:Key="GitHubGroupTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Label of a detail field ("Changes", "Reviewers"). -->
+  <Style x:Key="GitHubFieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource ForgeCaptionSecondary}">
+    <Setter Property="Width" Value="96" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Margin" Value="0,2,12,0" />
+  </Style>
+
+  <!-- Small square icon button of a row or a pane header. Give it a ToolTip and an AutomationProperties.Name. -->
+  <Style x:Key="GitHubSmallIconButtonStyle" TargetType="ui:Button" BasedOn="{StaticResource ForgeIconButtonStyle}">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinWidth" Value="28" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <!-- A branch name ("main", "feature/login") on a tint. -->
+  <Style x:Key="GitHubBranchPillStyle" TargetType="Border">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,0,6,1" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource ForgeInfoSubtleBrush}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource ForgeInfoBrush}" />
+    <Setter Property="TextElement.FontFamily" Value="{DynamicResource ForgeMonoFont}" />
+    <Setter Property="TextElement.FontSize" Value="11" />
+  </Style>
+
+  <!-- Text-only button that looks like a link ("owner/repo", "View all"). -->
+  <Style x:Key="GitHubLinkButtonStyle" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource GitHubFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource ForgeInfoBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <ContentPresenter x:Name="Presenter" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="False" />
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Opacity" Value="0.85" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter Property="Opacity" Value="0.7" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A card that acts as a button (stat cards, CI run rows): hover fill, rounded. -->
+  <Style x:Key="GitHubCardButtonStyle" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource GitHubFocusVisualStyle}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Surface" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" CornerRadius="6" SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Detail pane surface (right side of master–detail views). -->
+  <Style x:Key="GitHubDetailPaneStyle" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource LayerFillColorDefaultBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+  </Style>
+
+  <!-- Virtualized ItemsControl that scrolls by itself (threads, jobs). -->
+  <Style x:Key="GitHubVirtualizedItemsStyle" TargetType="ItemsControl">
+    <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+    <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+    <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="ItemsPanel">
+      <Setter.Value>
+        <ItemsPanelTemplate>
+          <VirtualizingStackPanel />
+        </ItemsPanelTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ItemsControl">
+          <ScrollViewer Padding="{TemplateBinding Padding}" CanContentScroll="True" Focusable="False" HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsPresenter />
+          </ScrollViewer>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Label pill: a dot in the label's color on a tint of it, primary text (readable in both themes). -->
+  <DataTemplate x:Key="GitHubLabelTemplate" DataType="{x:Type vm:LabelViewModel}">
+    <Border Height="20" Margin="0,0,4,0" Padding="6,0,7,1" VerticalAlignment="Center" Background="{Binding Background}" BorderBrush="{Binding Border}"
+            BorderThickness="1" CornerRadius="10" SnapsToDevicePixels="True" ToolTip="{Binding Name}">
+      <StackPanel Orientation="Horizontal">
+        <Ellipse Width="8" Height="8" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{Binding Color}" />
+        <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                   Text="{Binding Name}" />
+      </StackPanel>
+    </Border>
+  </DataTemplate>
+
+  <!-- Horizontal list of label pills. -->
+  <ItemsPanelTemplate x:Key="GitHubLabelsPanel">
+    <StackPanel Orientation="Horizontal" />
+  </ItemsPanelTemplate>
+
+  <ItemsPanelTemplate x:Key="GitHubWrapLabelsPanel">
+    <WrapPanel Orientation="Horizontal" />
+  </ItemsPanelTemplate>
+</ResourceDictionary>
