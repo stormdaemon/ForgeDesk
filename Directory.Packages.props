@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup Label="Core">
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
-    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Dapper" Version="2.1.100" />
     <PackageVersion Include="Octokit" Version="14.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
